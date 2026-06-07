@@ -1,0 +1,17 @@
+{
+  "name": "DeBarrio",
+  "short_name": "DeBarrio",
+  "description": "La pichanga se arma cuando todos pagan. Organiza partidos de barrio y reserva tu cupo pagando por transferencia.",
+  "lang": "es-CL",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1411",
+  "theme_color": "#1b7a3d",
+  "categories": ["sports", "social", "lifestyle"],
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

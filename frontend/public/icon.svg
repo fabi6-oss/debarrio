@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="DeBarrio">
+  <rect width="512" height="512" rx="112" fill="#1b7a3d"/>
+  <g fill="none" stroke="#ffffff" stroke-width="22" stroke-linejoin="round" stroke-linecap="round">
+    <circle cx="256" cy="256" r="150"/>
+    <path d="M256 168l64 47-24 75h-80l-24-75z"/>
+    <path d="M256 168v-62M320 215l59-27M296 290l37 53M216 290l-37 53M192 215l-59-27"/>
+  </g>
+</svg>

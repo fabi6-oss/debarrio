@@ -1,0 +1,181 @@
+/* ============================================================
+   DeBarrio — Tokens del sistema de diseño
+   Modo claro, alto contraste, mobile-first.
+   Variables manejables por Tweaks (ver data-* en :root).
+   ============================================================ */
+
+:root {
+  /* ---- Marca ---- */
+  --verde-900: #0d3d20;
+  --verde-800: #114d2a;
+  --verde-700: #156234;
+  --verde-600: #1b7a3d;   /* PRIMARY · verde cancha */
+  --verde-500: #239149;
+  --verde-400: #38ac61;
+  --verde-200: #b7e3c6;
+  --verde-100: #dcf3e4;
+  --verde-50:  #eef9f2;
+
+  --naranjo-700: #c44e12;
+  --naranjo-600: #e2570f;
+  --naranjo-500: #f2641a;  /* ACCENT · organizador / CTA secundario */
+  --naranjo-400: #f7864a;
+  --naranjo-200: #fcd6c0;
+  --naranjo-100: #fde7da;
+  --naranjo-50:  #fef3ec;
+
+  /* ---- Neutros cálidos ---- */
+  --tinta:    #19211c;   /* texto principal (negro cálido verdoso) */
+  --tinta-70: #45504a;   /* texto secundario */
+  --tinta-50: #6c766f;   /* texto terciario / placeholder */
+  --linea:    #e3e7e3;   /* bordes */
+  --linea-fuerte: #cfd6d0;
+  --panel:    #ffffff;   /* superficies */
+  --lienzo:   #f5f6f3;   /* fondo app (off-white cálido) */
+  --lienzo-2: #eceee9;
+
+  /* ---- Estados de cupo (color + se acompañan SIEMPRE de ícono+texto) ---- */
+  --st-libre-bg:     #ffffff;
+  --st-libre-bd:     #cfd6d0;
+  --st-libre-fg:     #45504a;
+
+  --st-pend-bg:      #fff6e2;
+  --st-pend-bd:      #f0c350;
+  --st-pend-fg:      #9a6a00;
+  --st-pend-solid:   #e8a317;
+
+  --st-pago-bg:      #1b7a3d;
+  --st-pago-bd:      #156234;
+  --st-pago-fg:      #ffffff;
+
+  --st-libe-bg:      #eef3fb;
+  --st-libe-bd:      #9db8e0;
+  --st-libe-fg:      #2f5aa0;
+
+  /* ---- Semánticos app ---- */
+  --primary:    var(--verde-600);
+  --primary-ink: #ffffff;
+  --accent:     var(--naranjo-500);
+  --ok:         var(--verde-600);
+  --warn:       var(--st-pend-solid);
+  --danger:     #d23b3b;
+  --info:       #2f5aa0;
+
+  /* ---- Tipografía ---- */
+  --font-ui: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-num: "Figtree", system-ui, sans-serif;
+  --fw-reg: 450;
+  --fw-med: 550;
+  --fw-semi: 650;
+  --fw-bold: 780;
+
+  /* escala fluida (crece en desktop) */
+  --fs-3xl: clamp(28px, 4.2vw, 44px);
+  --fs-2xl: clamp(23px, 3.2vw, 34px);
+  --fs-xl:  clamp(20px, 2.4vw, 27px);
+  --fs-lg:  clamp(18px, 1.7vw, 21px);
+  --fs-md:  clamp(15px, 1.2vw, 17px);
+  --fs-sm:  clamp(13px, 1.0vw, 14px);
+  --fs-xs:  12px;
+  --lh-tight: 1.08;
+  --lh-snug: 1.25;
+  --lh-body: 1.5;
+
+  /* ---- Espaciado (base 4) ---- */
+  --s-1: 4px;  --s-2: 8px;  --s-3: 12px; --s-4: 16px;
+  --s-5: 20px; --s-6: 24px; --s-7: 32px; --s-8: 40px;
+  --s-9: 48px; --s-10: 64px; --s-12: 80px;
+
+  /* ---- Radios ---- */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+  --r-pill: 999px;
+
+  /* ---- Sombras (suaves, modo claro) ---- */
+  --sh-sm: 0 1px 2px rgba(20,40,28,.06), 0 1px 1px rgba(20,40,28,.04);
+  --sh-md: 0 2px 6px rgba(20,40,28,.07), 0 6px 18px rgba(20,40,28,.06);
+  --sh-lg: 0 8px 28px rgba(20,40,28,.12), 0 2px 8px rgba(20,40,28,.06);
+  --sh-up: 0 -6px 20px rgba(20,40,28,.08);
+  --ring: 0 0 0 3px rgba(27,122,61,.28);
+  --ring-acc: 0 0 0 3px rgba(242,100,26,.3);
+
+  /* ---- Touch ---- */
+  --tap: 48px;       /* área táctil mínima móvil */
+  --tap-lg: 56px;
+}
+
+/* ============================================================
+   Tema oscuro — se activa con :root[data-theme="dark"] (lo setea useTheme).
+   Marca (verde/naranjo) se mantiene; cambian neutros, estados y sombras.
+   ============================================================ */
+:root[data-theme="dark"] {
+  --tinta:    #e7ece8;
+  --tinta-70: #a9b3ac;
+  --tinta-50: #7e8881;
+  --linea:    #2b332d;
+  --linea-fuerte: #3b443e;
+  --panel:    #1a201c;
+  --lienzo:   #0f1411;
+  --lienzo-2: #161c18;
+
+  --st-libre-bg: #1a201c;
+  --st-libre-bd: #3b443e;
+  --st-libre-fg: #a9b3ac;
+
+  --st-pend-bg:  #2e2510;
+  --st-pend-bd:  #7a5e1c;
+  --st-pend-fg:  #f0c863;
+  --st-pend-solid: #e8a317;
+
+  --st-pago-bg:  #1b7a3d;
+  --st-pago-bd:  #239149;
+  --st-pago-fg:  #ffffff;
+
+  --st-libe-bg:  #18202e;
+  --st-libe-bd:  #34507e;
+  --st-libe-fg:  #9db8e0;
+
+  --info:   #6f9ae0;
+  --danger: #f06a6a;
+
+  --sh-sm: 0 1px 2px rgba(0,0,0,.40);
+  --sh-md: 0 2px 6px rgba(0,0,0,.45), 0 6px 18px rgba(0,0,0,.40);
+  --sh-lg: 0 8px 28px rgba(0,0,0,.55), 0 2px 8px rgba(0,0,0,.40);
+  --sh-up: 0 -6px 20px rgba(0,0,0,.40);
+}
+:root[data-theme="dark"] ::selection { background: var(--verde-700); color: #fff; }
+
+/* ---- Breakpoints (referencia) ----
+   sm  ≥ 480px   teléfono grande
+   md  ≥ 768px   tablet
+   lg  ≥ 1024px  escritorio (dos zonas + sidebar)
+   xl  ≥ 1280px  escritorio amplio
+*/
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font-ui);
+  color: var(--tinta);
+  background: var(--lienzo);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  font-weight: var(--fw-reg);
+}
+button { font-family: inherit; }
+::selection { background: var(--verde-200); }
+
+/* números tabulares para grilla y montos */
+.num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+
+/* utilitario screen-reader */
+.sr-only {
+  position:absolute; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+}

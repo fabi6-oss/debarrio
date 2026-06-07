@@ -1,0 +1,97 @@
+/* DeBarrio — Design Tokens
+   Capa 1 (primitivos) → Capa 2 (semánticos). Compatible con Tailwind (theme.extend).
+   Mobile-first. Modo claro por defecto. */
+
+:root {
+  /* ---- Primitivos: marca (verde cancha) ---- */
+  --db-green-50:  #ECFDF5;
+  --db-green-100: #DCFCE7;
+  --db-green-500: #16A34A;
+  --db-green-600: #15803D;
+  --db-green-700: #166534;
+
+  /* ---- Primitivos: acento (energía) ---- */
+  --db-orange-100: #FFEDD5;
+  --db-orange-500: #F97316;
+  --db-orange-600: #EA580C;
+
+  /* ---- Primitivos: neutros ---- */
+  --db-slate-50:  #F8FAFC;
+  --db-slate-100: #F1F5F9;
+  --db-slate-200: #E2E8F0;
+  --db-slate-300: #CBD5E1;
+  --db-slate-500: #64748B;
+  --db-slate-700: #334155;
+  --db-slate-900: #0F172A;
+
+  /* ---- Primitivos: estado ---- */
+  --db-amber-100: #FEF3C7;
+  --db-amber-500: #F59E0B;
+  --db-amber-700: #92400E;
+  --db-red-100:   #FEE2E2;
+  --db-red-500:   #EF4444;
+  --db-red-700:   #991B1B;
+
+  /* ---- Semánticos: marca ---- */
+  --color-brand:        var(--db-green-500);
+  --color-brand-dark:   var(--db-green-600);
+  --color-accent:       var(--db-orange-500);
+  --color-accent-dark:  var(--db-orange-600);
+
+  /* ---- Semánticos: superficie y texto ---- */
+  --color-bg:        var(--db-slate-50);
+  --color-surface:   #FFFFFF;
+  --color-border:    var(--db-slate-200);
+  --color-text:      var(--db-slate-900);
+  --color-text-soft: var(--db-slate-500);
+
+  /* ---- Semánticos: estados de cupo ---- */
+  --cupo-libre-bg:        var(--db-slate-100);
+  --cupo-libre-border:    var(--db-slate-300);
+  --cupo-libre-text:      var(--db-slate-500);
+
+  --cupo-pendiente-bg:     var(--db-amber-100);
+  --cupo-pendiente-border: var(--db-amber-500);
+  --cupo-pendiente-text:   var(--db-amber-700);
+
+  --cupo-pagado-bg:        var(--db-green-100);
+  --cupo-pagado-border:    var(--db-green-500);
+  --cupo-pagado-text:      var(--db-green-700);
+
+  --cupo-liberado-bg:      var(--db-red-100);
+  --cupo-liberado-border:  var(--db-red-500);
+  --cupo-liberado-text:    var(--db-red-700);
+
+  /* ---- Tipografía (mobile) ---- */
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --text-xs:   0.75rem;   /* 12 */
+  --text-sm:   0.875rem;  /* 14 */
+  --text-base: 1rem;      /* 16 — mínimo body */
+  --text-lg:   1.125rem;  /* 18 */
+  --text-xl:   1.375rem;  /* 22 */
+  --text-2xl:  1.75rem;   /* 28 */
+  --text-3xl:  2.25rem;   /* 36 */
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-bold:   700;
+
+  /* ---- Espaciado (escala 4px) ---- */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  /* ---- Radios y sombras ---- */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-full: 999px;
+  --shadow-card: 0 1px 3px rgba(15,23,42,.08), 0 1px 2px rgba(15,23,42,.04);
+  --shadow-pop:  0 8px 24px rgba(15,23,42,.12);
+
+  /* ---- Touch targets (low-tech friendly) ---- */
+  --tap-min: 48px;   /* altura mínima de botones */
+}
