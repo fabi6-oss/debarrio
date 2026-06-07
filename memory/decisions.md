@@ -42,3 +42,15 @@
 **Decisión**: bucket `comprobantes` privado; jugador accede a su carpeta (path = uid). El organizador NO lee el bucket directo: pide signed URL vía RPC que valida es_organizador().
 **Razón**: no exponer comprobantes (datos personales) ni dar acceso amplio al organizador sobre el bucket.
 **Estado**: aceptada (RPC de signed URL queda para Fase 3 con frontend).
+
+## ADR-009 — Deploy headless via tokens (no CLI interactivo)
+**Contexto**: deploy a Vercel sin interacción en browser.
+**Decisión**: usuario genera tokens (GitHub, Vercel, Supabase) → agente ejecuta todo via API/CLI con `--token`/`--scope`.
+**Razón**: máxima automatización, mínima fricción humana. Solo 1 paso manual (Google OAuth origins).
+**Resultado**: 
+- git init en `Proyectos/DeBarrio/`, commit 63 archivos, push a `github.com/fabi6-oss/debarrio`
+- `vercel deploy --prod --scope fabianzccs-7161s-projects` desde `frontend/`
+- Env vars seteadas via Vercel Management API
+- Supabase Auth URLs seteadas via Management API (PATCH /v1/projects/{ref}/config/auth)
+- SPA rewrite via `frontend/vercel.json`
+**Estado**: ejecutada 2026-06-07.
