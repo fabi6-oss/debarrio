@@ -7,6 +7,14 @@
      data-nav     = labels | icons | pill
    ============================================================ */
 
+   DeBarrio — componentes
+   Variaciones por Tweaks vía atributos en [data-app]:
+     data-grid    = rounded | circle | ticket
+     data-density = compact | regular | comfy
+     data-card    = solid | outline | photo
+     data-nav     = labels | icons | pill
+   ============================================================ */
+
 /* ---------- mobile/touch optimizations (iOS + Android) ---------- */
 button, a, .spot, .chip, .nav-item, .icon-btn, .match-card, .side-link, .copy-row, .hf-tile {
   -webkit-tap-highlight-color: transparent;
@@ -27,7 +35,7 @@ button { -webkit-touch-callout: none; -webkit-user-select: none; user-select: no
 }
 html { scroll-behavior: smooth; }
 
-/* transiciÃ³n de entrada al cambiar de vista/tab ("al deslizar") */
+/* transición de entrada al cambiar de vista/tab ("al deslizar") */
 .content-enter { animation: contentSlideIn .38s var(--ease-out) both; }
 @keyframes contentSlideIn {
   0%   { opacity: 0; transform: translateY(10px); }
@@ -40,7 +48,7 @@ html { scroll-behavior: smooth; }
 /* ---------- layout app shell ---------- */
 .app { min-height: 100dvh; background: var(--lienzo); }
 
-/* App canvas mÃ¡ximo en desktop */
+/* App canvas máximo en desktop */
 .shell { display: flex; min-height: 100dvh; }
 
 /* Sidebar (desktop) */
@@ -80,7 +88,7 @@ html { scroll-behavior: smooth; }
 .content-pad { width:100%; max-width: 1120px; margin:0 auto; padding: var(--s-4); }
 .with-bottomnav { padding-bottom: calc(var(--tap-lg) + env(safe-area-inset-bottom) + 22px); }
 
-/* Topbar mÃ³vil */
+/* Topbar móvil */
 .topbar {
   position: sticky; top:0; z-index: 30;
   display:flex; align-items:center; gap: var(--s-3);
@@ -101,7 +109,7 @@ html { scroll-behavior: smooth; }
 .icon-btn:hover { color: var(--tinta); border-color: var(--linea-fuerte); box-shadow: var(--sh-md); }
 .icon-btn:active { transform: scale(.92); transition-duration: .07s; }
 
-/* ---------- bottom nav (mÃ³vil) ---------- */
+/* ---------- bottom nav (móvil) ---------- */
 .bottomnav {
   position: fixed; left:0; right:0; bottom:0; z-index: 40;
   display:flex; gap:2px; padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
@@ -303,7 +311,7 @@ html { scroll-behavior: smooth; }
 .prog-legend i { width:10px; height:10px; border-radius:3px; display:inline-block; margin-right:5px; vertical-align:-1px; }
 
 /* ============================================================
-   GRILLA DE CUPOS  â˜…
+   GRILLA DE CUPOS  ★
    ============================================================ */
 .grid-wrap { display:flex; flex-direction:column; gap: var(--s-4); }
 .spot-grid {
@@ -358,11 +366,11 @@ html { scroll-behavior: smooth; }
 .spot.s-libre:hover { border-color: var(--verde-500); color: var(--verde-700); }
 .spot.s-liberado:hover { border-color: var(--verde-500); }
 .spot.s-mine { box-shadow: 0 0 0 2px var(--naranjo-200); }
-.spot.s-mine::after { content:"tÃº"; }
+.spot.s-mine::after { content:"tú"; }
 .spot.is-static { cursor: default; }
 .spot.is-static:hover { box-shadow: var(--sh-sm); }
 
-/* âœ¨ micro-recompensa cuando un cupo pasa a pagado */
+/* ✨ micro-recompensa cuando un cupo pasa a pagado */
 .spot.is-just-paid { animation: spotPaidPulse .76s cubic-bezier(.2,.8,.2,1); }
 @keyframes spotPaidPulse {
   0%   { transform: scale(1);    box-shadow: 0 0 0 0   rgba(35,145,73,.55), var(--sh-sm); }
@@ -385,7 +393,7 @@ html { scroll-behavior: smooth; }
 .legend-swatch.s-pendiente { background: var(--st-pend-bg); border-color: var(--st-pend-bd); color: var(--st-pend-fg); border-style:dashed; }
 .legend-swatch.s-liberado { background: var(--st-libe-bg); border-color: var(--st-libe-bd); color: var(--st-libe-fg); border-style:dashed; }
 
-/* ---------- reputaciÃ³n ---------- */
+/* ---------- reputación ---------- */
 .rep {
   display:inline-flex; align-items:center; gap:7px; padding:5px 11px 5px 8px;
   border-radius: var(--r-pill); font-weight: var(--fw-bold); font-size: var(--fs-sm);
@@ -447,7 +455,7 @@ textarea.input { height:auto; padding:12px 14px; resize:vertical; min-height:88p
 .copy-row .v { font-size: var(--fs-md); font-weight: var(--fw-bold); }
 .copy-row button { margin-left:auto; }
 
-/* âœ¨ flash verde al copiar + pop del botÃ³n */
+/* ✨ flash verde al copiar + pop del botón */
 .copy-row.is-done {
   animation: copyRowFlash .9s cubic-bezier(.2,.8,.2,1);
 }
@@ -509,7 +517,7 @@ textarea.input { height:auto; padding:12px 14px; resize:vertical; min-height:88p
 .grid-2 { display:grid; grid-template-columns: repeat(2,1fr); gap: var(--s-3); }
 .grid-3 { display:grid; grid-template-columns: repeat(3,1fr); gap: var(--s-3); }
 
-/* sheet / modal mÃ³vil */
+/* sheet / modal móvil */
 .scrim {
   position:fixed; inset:0; z-index:60; background: rgba(15,25,18,.45);
   display:flex; align-items:flex-end; justify-content:center;
@@ -558,7 +566,7 @@ textarea.input { height:auto; padding:12px 14px; resize:vertical; min-height:88p
   .content-pad { max-width: 1240px; }
 }
 
-/* desktop topbar interior (tÃ­tulo de pÃ¡gina) */
+/* desktop topbar interior (título de página) */
 .deskbar { display:none; }
 @media (min-width:1024px){
   .deskbar {
@@ -568,7 +576,7 @@ textarea.input { height:auto; padding:12px 14px; resize:vertical; min-height:88p
 }
 
 /* ============================================================
-   AUTH â€” pantalla inmersiva (fondo cinematogrÃ¡fico + tarjeta)
+   AUTH — pantalla inmersiva (fondo cinematográfico + tarjeta)
    ============================================================ */
 .auth-stage {
   position: relative; min-height: 100dvh; overflow: hidden;
@@ -666,7 +674,7 @@ textarea.input { height:auto; padding:12px 14px; resize:vertical; min-height:88p
   backdrop-filter: blur(6px);
 }
 
-/* Badge circular brillante (estilo botÃ³n referencia) */
+/* Badge circular brillante (estilo botón referencia) */
 .badge-ico {
   position: relative; flex: none;
   width: 26px; height: 26px; border-radius: 50%;
@@ -690,7 +698,7 @@ textarea.input { height:auto; padding:12px 14px; resize:vertical; min-height:88p
   .auth-title { margin-top: 12px; }
 }
 
-/* hero-fill: animaciÃ³n de cupos llenÃ¡ndose */
+/* hero-fill: animación de cupos llenándose */
 .hero-fill { display: flex; flex-direction: column; gap: 14px; }
 .hero-fill-grid {
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
@@ -763,7 +771,7 @@ textarea.input { height:auto; padding:12px 14px; resize:vertical; min-height:88p
 .hero-fill-cap b { font-weight: 800; color: #fff; font-variant-numeric: tabular-nums; }
 .hero-fill-cap.is-armada { color: #fff; }
 
-/* VersiÃ³n compacta (mobile sobre fondo claro) */
+/* Versión compacta (mobile sobre fondo claro) */
 .hero-fill.hf-compact { gap: 10px; margin: 4px 0 22px; }
 .hero-fill.hf-compact .hero-fill-grid {
   grid-template-columns: repeat(8, 1fr);
@@ -797,7 +805,7 @@ textarea.input { height:auto; padding:12px 14px; resize:vertical; min-height:88p
   .auth-hero { display: none !important; }
 }
 
-/* hide-on rules â€” SOLO ocultan; nunca fuerzan display (no rompen flex/grid) */
+/* hide-on rules — SOLO ocultan; nunca fuerzan display (no rompen flex/grid) */
 .only-mobile { }
 .only-desktop { }
 @media (max-width:1023.98px){
@@ -809,7 +817,7 @@ textarea.input { height:auto; padding:12px 14px; resize:vertical; min-height:88p
 
 
 
-  /* escala tipogrÃ¡fica (Tweak: type) */
+  /* escala tipográfica (Tweak: type) */
   [data-type="chico"] {
     --fs-3xl: clamp(25px,3.6vw,38px); --fs-2xl: clamp(21px,2.8vw,30px);
     --fs-xl: clamp(18px,2.1vw,24px); --fs-lg: clamp(16px,1.5vw,19px);
