@@ -1330,13 +1330,1973 @@ textarea.input { height:auto; padding:12px 14px; resize:vertical; min-height:88p
 <script src="/1bcad86b-e60f-4ca3-8291-af980d46b858" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="/ae4145ee-c05e-4831-a248-afd84344289e" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
-<script type="text/babel" src="/7e5a6713-3152-43dd-a288-761fc8c5b17f"></script>
-<script type="text/babel" src="/2c40eac1-ad75-4396-aa69-b7e55e9858d6"></script>
-<script type="text/babel" src="/e314604d-6ea5-441a-b25f-b117c4306f2d"></script>
-<script type="text/babel" src="/4941e8a1-a96b-44af-90eb-e342804ba57a"></script>
-<script type="text/babel" src="/c443d938-3ad9-4e3b-8130-3306660b157b"></script>
-<script type="text/babel" src="/6ce1ac2b-cc69-4c4e-ae97-ea96b085e7b0"></script>
-<script type="text/babel" src="/74599f2a-8d8d-4282-871d-6e893954b432"></script>
+<script type="text/babel">
+// @ds-adherence-ignore -- omelette starter scaffold (raw elements/hex/px by design)
+
+/* BEGIN USAGE */
+// tweaks-panel.jsx
+// Reusable Tweaks shell + form-control helpers.
+// Exports (to window): useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider,
+//   TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton.
+//
+// Owns the host protocol (listens for __activate_edit_mode / __deactivate_edit_mode,
+// posts __edit_mode_available / __edit_mode_set_keys / __edit_mode_dismissed) so
+// individual prototypes don't re-roll it. Ships a consistent set of controls so you
+// don't hand-draw <input type="range">, segmented radios, steppers, etc.
+//
+// Usage (in an HTML file that loads React + Babel):
+//
+//   const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+//     "primaryColor": "#D97757",
+//     "palette": ["#D97757", "#29261b", "#f6f4ef"],
+//     "fontSize": 16,
+//     "density": "regular",
+//     "dark": false
+//   }/*EDITMODE-END*/;
+//
+//   function App() {
+//     const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+//     return (
+//       <div style={{ fontSize: t.fontSize, color: t.primaryColor }}>
+//         Hello
+//         <TweaksPanel>
+//           <TweakSection label="Typography" />
+//           <TweakSlider label="Font size" value={t.fontSize} min={10} max={32} unit="px"
+//                        onChange={(v) => setTweak('fontSize', v)} />
+//           <TweakRadio  label="Density" value={t.density}
+//                        options={['compact', 'regular', 'comfy']}
+//                        onChange={(v) => setTweak('density', v)} />
+//           <TweakSection label="Theme" />
+//           <TweakColor  label="Primary" value={t.primaryColor}
+//                        options={['#D97757', '#2A6FDB', '#1F8A5B', '#7A5AE0']}
+//                        onChange={(v) => setTweak('primaryColor', v)} />
+//           <TweakColor  label="Palette" value={t.palette}
+//                        options={[['#D97757', '#29261b', '#f6f4ef'],
+//                                  ['#475569', '#0f172a', '#f1f5f9']]}
+//                        onChange={(v) => setTweak('palette', v)} />
+//           <TweakToggle label="Dark mode" value={t.dark}
+//                        onChange={(v) => setTweak('dark', v)} />
+//         </TweaksPanel>
+//       </div>
+//     );
+//   }
+//
+// TweakRadio is the segmented control for 2–3 short options (auto-falls-back to
+// TweakSelect past ~16/~10 chars per label); reach for TweakSelect directly when
+// options are many or long. For color tweaks always curate 3-4 options rather than
+// a free picker; an option can also be a whole 2–5 color palette (the stored value
+// is the array). The Tweak* controls are a floor, not a ceiling — build custom
+// controls inside the panel if a tweak calls for UI they don't cover.
+/* END USAGE */
+// ─────────────────────────────────────────────────────────────────────────────
+
+const __TWEAKS_STYLE = `
+  .twk-panel{position:fixed;right:16px;bottom:16px;z-index:2147483646;width:280px;
+    max-height:calc(100vh - 32px);display:flex;flex-direction:column;
+    transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right;
+    background:rgba(250,249,247,.78);color:#29261b;
+    -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
+    border:.5px solid rgba(255,255,255,.6);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
+    font:11.5px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;overflow:hidden}
+  .twk-hd{display:flex;align-items:center;justify-content:space-between;
+    padding:10px 8px 10px 14px;cursor:move;user-select:none}
+  .twk-hd b{font-size:12px;font-weight:600;letter-spacing:.01em}
+  .twk-x{appearance:none;border:0;background:transparent;color:rgba(41,38,27,.55);
+    width:22px;height:22px;border-radius:6px;cursor:default;font-size:13px;line-height:1}
+  .twk-x:hover{background:rgba(0,0,0,.06);color:#29261b}
+  .twk-body{padding:2px 14px 14px;display:flex;flex-direction:column;gap:10px;
+    overflow-y:auto;overflow-x:hidden;min-height:0;
+    scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.15) transparent}
+  .twk-body::-webkit-scrollbar{width:8px}
+  .twk-body::-webkit-scrollbar-track{background:transparent;margin:2px}
+  .twk-body::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:4px;
+    border:2px solid transparent;background-clip:content-box}
+  .twk-body::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.25);
+    border:2px solid transparent;background-clip:content-box}
+  .twk-row{display:flex;flex-direction:column;gap:5px}
+  .twk-row-h{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
+  .twk-lbl{display:flex;justify-content:space-between;align-items:baseline;
+    color:rgba(41,38,27,.72)}
+  .twk-lbl>span:first-child{font-weight:500}
+  .twk-val{color:rgba(41,38,27,.5);font-variant-numeric:tabular-nums}
+
+  .twk-sect{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+    color:rgba(41,38,27,.45);padding:10px 0 0}
+  .twk-sect:first-child{padding-top:0}
+
+  .twk-field{appearance:none;box-sizing:border-box;width:100%;min-width:0;height:26px;padding:0 8px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:7px;
+    background:rgba(255,255,255,.6);color:inherit;font:inherit;outline:none}
+  .twk-field:focus{border-color:rgba(0,0,0,.25);background:rgba(255,255,255,.85)}
+  select.twk-field{padding-right:22px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='rgba(0,0,0,.5)' d='M0 0h10L5 6z'/></svg>");
+    background-repeat:no-repeat;background-position:right 8px center}
+
+  .twk-slider{appearance:none;-webkit-appearance:none;width:100%;height:4px;margin:6px 0;
+    border-radius:999px;background:rgba(0,0,0,.12);outline:none}
+  .twk-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:14px;height:14px;border-radius:50%;background:#fff;
+    border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+  .twk-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
+    background:#fff;border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+
+  .twk-seg{position:relative;display:flex;padding:2px;border-radius:8px;
+    background:rgba(0,0,0,.06);user-select:none}
+  .twk-seg-thumb{position:absolute;top:2px;bottom:2px;border-radius:6px;
+    background:rgba(255,255,255,.9);box-shadow:0 1px 2px rgba(0,0,0,.12);
+    transition:left .15s cubic-bezier(.3,.7,.4,1),width .15s}
+  .twk-seg.dragging .twk-seg-thumb{transition:none}
+  .twk-seg button{appearance:none;position:relative;z-index:1;flex:1;border:0;
+    background:transparent;color:inherit;font:inherit;font-weight:500;min-height:22px;
+    border-radius:6px;cursor:default;padding:4px 6px;line-height:1.2;
+    overflow-wrap:anywhere}
+
+  .twk-toggle{position:relative;width:32px;height:18px;border:0;border-radius:999px;
+    background:rgba(0,0,0,.15);transition:background .15s;cursor:default;padding:0}
+  .twk-toggle[data-on="1"]{background:#34c759}
+  .twk-toggle i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+  .twk-toggle[data-on="1"] i{transform:translateX(14px)}
+
+  .twk-num{display:flex;align-items:center;box-sizing:border-box;min-width:0;height:26px;padding:0 0 0 8px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:7px;background:rgba(255,255,255,.6)}
+  .twk-num-lbl{font-weight:500;color:rgba(41,38,27,.6);cursor:ew-resize;
+    user-select:none;padding-right:8px}
+  .twk-num input{flex:1;min-width:0;height:100%;border:0;background:transparent;
+    font:inherit;font-variant-numeric:tabular-nums;text-align:right;padding:0 8px 0 0;
+    outline:none;color:inherit;-moz-appearance:textfield}
+  .twk-num input::-webkit-inner-spin-button,.twk-num input::-webkit-outer-spin-button{
+    -webkit-appearance:none;margin:0}
+  .twk-num-unit{padding-right:8px;color:rgba(41,38,27,.45)}
+
+  .twk-btn{appearance:none;height:26px;padding:0 12px;border:0;border-radius:7px;
+    background:rgba(0,0,0,.78);color:#fff;font:inherit;font-weight:500;cursor:default}
+  .twk-btn:hover{background:rgba(0,0,0,.88)}
+  .twk-btn.secondary{background:rgba(0,0,0,.06);color:inherit}
+  .twk-btn.secondary:hover{background:rgba(0,0,0,.1)}
+
+  .twk-swatch{appearance:none;-webkit-appearance:none;width:56px;height:22px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:6px;padding:0;cursor:default;
+    background:transparent;flex-shrink:0}
+  .twk-swatch::-webkit-color-swatch-wrapper{padding:0}
+  .twk-swatch::-webkit-color-swatch{border:0;border-radius:5.5px}
+  .twk-swatch::-moz-color-swatch{border:0;border-radius:5.5px}
+
+  .twk-chips{display:flex;gap:6px}
+  .twk-chip{position:relative;appearance:none;flex:1;min-width:0;height:46px;
+    padding:0;border:0;border-radius:6px;overflow:hidden;cursor:default;
+    box-shadow:0 0 0 .5px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.06);
+    transition:transform .12s cubic-bezier(.3,.7,.4,1),box-shadow .12s}
+  .twk-chip:hover{transform:translateY(-1px);
+    box-shadow:0 0 0 .5px rgba(0,0,0,.18),0 4px 10px rgba(0,0,0,.12)}
+  .twk-chip[data-on="1"]{box-shadow:0 0 0 1.5px rgba(0,0,0,.85),
+    0 2px 6px rgba(0,0,0,.15)}
+  .twk-chip>span{position:absolute;top:0;bottom:0;right:0;width:34%;
+    display:flex;flex-direction:column;box-shadow:-1px 0 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i{flex:1;box-shadow:0 -1px 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i:first-child{box-shadow:none}
+  .twk-chip svg{position:absolute;top:6px;left:6px;width:13px;height:13px;
+    filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
+`;
+
+// ── useTweaks ───────────────────────────────────────────────────────────────
+// Single source of truth for tweak values. setTweak persists via the host
+// (__edit_mode_set_keys → host rewrites the EDITMODE block on disk).
+function useTweaks(defaults) {
+  const [values, setValues] = React.useState(defaults);
+  // Accepts either setTweak('key', value) or setTweak({ key: value, ... }) so a
+  // useState-style call doesn't write a "[object Object]" key into the persisted
+  // JSON block.
+  const setTweak = React.useCallback((keyOrEdits, val) => {
+    const edits = typeof keyOrEdits === 'object' && keyOrEdits !== null
+      ? keyOrEdits : { [keyOrEdits]: val };
+    setValues((prev) => ({ ...prev, ...edits }));
+    window.parent.postMessage({ type: '__edit_mode_set_keys', edits }, '*');
+    // Same-window signal so in-page listeners (deck-stage rail thumbnails)
+    // can react — the parent message only reaches the host, not peers.
+    window.dispatchEvent(new CustomEvent('tweakchange', { detail: edits }));
+  }, []);
+  return [values, setTweak];
+}
+
+// ── TweaksPanel ─────────────────────────────────────────────────────────────
+// Floating shell. Registers the protocol listener BEFORE announcing
+// availability — if the announce ran first, the host's activate could land
+// before our handler exists and the toolbar toggle would silently no-op.
+// The close button posts __edit_mode_dismissed so the host's toolbar toggle
+// flips off in lockstep; the host echoes __deactivate_edit_mode back which
+// is what actually hides the panel.
+function TweaksPanel({ title = 'Tweaks', children }) {
+  const [open, setOpen] = React.useState(false);
+  const dragRef = React.useRef(null);
+  const offsetRef = React.useRef({ x: 16, y: 16 });
+  const PAD = 16;
+
+  const clampToViewport = React.useCallback(() => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const w = panel.offsetWidth, h = panel.offsetHeight;
+    const maxRight = Math.max(PAD, window.innerWidth - w - PAD);
+    const maxBottom = Math.max(PAD, window.innerHeight - h - PAD);
+    offsetRef.current = {
+      x: Math.min(maxRight, Math.max(PAD, offsetRef.current.x)),
+      y: Math.min(maxBottom, Math.max(PAD, offsetRef.current.y)),
+    };
+    panel.style.right = offsetRef.current.x + 'px';
+    panel.style.bottom = offsetRef.current.y + 'px';
+  }, []);
+
+  React.useEffect(() => {
+    if (!open) return;
+    clampToViewport();
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', clampToViewport);
+      return () => window.removeEventListener('resize', clampToViewport);
+    }
+    const ro = new ResizeObserver(clampToViewport);
+    ro.observe(document.documentElement);
+    return () => ro.disconnect();
+  }, [open, clampToViewport]);
+
+  React.useEffect(() => {
+    const onMsg = (e) => {
+      const t = e?.data?.type;
+      if (t === '__activate_edit_mode') setOpen(true);
+      else if (t === '__deactivate_edit_mode') setOpen(false);
+    };
+    window.addEventListener('message', onMsg);
+    window.parent.postMessage({ type: '__edit_mode_available' }, '*');
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
+  const dismiss = () => {
+    setOpen(false);
+    window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*');
+  };
+
+  const onDragStart = (e) => {
+    const panel = dragRef.current;
+    if (!panel) return;
+    const r = panel.getBoundingClientRect();
+    const sx = e.clientX, sy = e.clientY;
+    const startRight = window.innerWidth - r.right;
+    const startBottom = window.innerHeight - r.bottom;
+    const move = (ev) => {
+      offsetRef.current = {
+        x: startRight - (ev.clientX - sx),
+        y: startBottom - (ev.clientY - sy),
+      };
+      clampToViewport();
+    };
+    const up = () => {
+      window.removeEventListener('mousemove', move);
+      window.removeEventListener('mouseup', up);
+    };
+    window.addEventListener('mousemove', move);
+    window.addEventListener('mouseup', up);
+  };
+
+  if (!open) return null;
+  return (
+    <>
+      <style>{__TWEAKS_STYLE}</style>
+      <div ref={dragRef} className="twk-panel" data-omelette-chrome=""
+           style={{ right: offsetRef.current.x, bottom: offsetRef.current.y }}>
+        <div className="twk-hd" onMouseDown={onDragStart}>
+          <b>{title}</b>
+          <button className="twk-x" aria-label="Close tweaks"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={dismiss}>✕</button>
+        </div>
+        <div className="twk-body">
+          {children}
+        </div>
+      </div>
+    </>
+  );
+}
+
+// ── Layout helpers ──────────────────────────────────────────────────────────
+
+function TweakSection({ label, children }) {
+  return (
+    <>
+      <div className="twk-sect">{label}</div>
+      {children}
+    </>
+  );
+}
+
+function TweakRow({ label, value, children, inline = false }) {
+  return (
+    <div className={inline ? 'twk-row twk-row-h' : 'twk-row'}>
+      <div className="twk-lbl">
+        <span>{label}</span>
+        {value != null && <span className="twk-val">{value}</span>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+// ── Controls ────────────────────────────────────────────────────────────────
+
+function TweakSlider({ label, value, min = 0, max = 100, step = 1, unit = '', onChange }) {
+  return (
+    <TweakRow label={label} value={`${value}${unit}`}>
+      <input type="range" className="twk-slider" min={min} max={max} step={step}
+             value={value} onChange={(e) => onChange(Number(e.target.value))} />
+    </TweakRow>
+  );
+}
+
+function TweakToggle({ label, value, onChange }) {
+  return (
+    <div className="twk-row twk-row-h">
+      <div className="twk-lbl"><span>{label}</span></div>
+      <button type="button" className="twk-toggle" data-on={value ? '1' : '0'}
+              role="switch" aria-checked={!!value}
+              onClick={() => onChange(!value)}><i /></button>
+    </div>
+  );
+}
+
+function TweakRadio({ label, value, options, onChange }) {
+  const trackRef = React.useRef(null);
+  const [dragging, setDragging] = React.useState(false);
+  // The active value is read by pointer-move handlers attached for the lifetime
+  // of a drag — ref it so a stale closure doesn't fire onChange for every move.
+  const valueRef = React.useRef(value);
+  valueRef.current = value;
+
+  // Segments wrap mid-word once per-segment width runs out. The track is
+  // ~248px (280 panel − 28 body pad − 4 seg pad), each button loses 12px
+  // to its own padding, and 11.5px system-ui averages ~6.3px/char — so 2
+  // options fit ~16 chars each, 3 fit ~10. Past that (or >3 options), fall
+  // back to a dropdown rather than wrap.
+  const labelLen = (o) => String(typeof o === 'object' ? o.label : o).length;
+  const maxLen = options.reduce((m, o) => Math.max(m, labelLen(o)), 0);
+  const fitsAsSegments = maxLen <= ({ 2: 16, 3: 10 }[options.length] ?? 0);
+  if (!fitsAsSegments) {
+    // <select> emits strings — map back to the original option value so the
+    // fallback stays type-preserving (numbers, booleans) like the segment path.
+    const resolve = (s) => {
+      const m = options.find((o) => String(typeof o === 'object' ? o.value : o) === s);
+      return m === undefined ? s : typeof m === 'object' ? m.value : m;
+    };
+    return <TweakSelect label={label} value={value} options={options}
+                        onChange={(s) => onChange(resolve(s))} />;
+  }
+  const opts = options.map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
+  const idx = Math.max(0, opts.findIndex((o) => o.value === value));
+  const n = opts.length;
+
+  const segAt = (clientX) => {
+    const r = trackRef.current.getBoundingClientRect();
+    const inner = r.width - 4;
+    const i = Math.floor(((clientX - r.left - 2) / inner) * n);
+    return opts[Math.max(0, Math.min(n - 1, i))].value;
+  };
+
+  const onPointerDown = (e) => {
+    setDragging(true);
+    const v0 = segAt(e.clientX);
+    if (v0 !== valueRef.current) onChange(v0);
+    const move = (ev) => {
+      if (!trackRef.current) return;
+      const v = segAt(ev.clientX);
+      if (v !== valueRef.current) onChange(v);
+    };
+    const up = () => {
+      setDragging(false);
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+
+  return (
+    <TweakRow label={label}>
+      <div ref={trackRef} role="radiogroup" onPointerDown={onPointerDown}
+           className={dragging ? 'twk-seg dragging' : 'twk-seg'}>
+        <div className="twk-seg-thumb"
+             style={{ left: `calc(2px + ${idx} * (100% - 4px) / ${n})`,
+                      width: `calc((100% - 4px) / ${n})` }} />
+        {opts.map((o) => (
+          <button key={o.value} type="button" role="radio" aria-checked={o.value === value}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+    </TweakRow>
+  );
+}
+
+function TweakSelect({ label, value, options, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <select className="twk-field" value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map((o) => {
+          const v = typeof o === 'object' ? o.value : o;
+          const l = typeof o === 'object' ? o.label : o;
+          return <option key={v} value={v}>{l}</option>;
+        })}
+      </select>
+    </TweakRow>
+  );
+}
+
+function TweakText({ label, value, placeholder, onChange }) {
+  return (
+    <TweakRow label={label}>
+      <input className="twk-field" type="text" value={value} placeholder={placeholder}
+             onChange={(e) => onChange(e.target.value)} />
+    </TweakRow>
+  );
+}
+
+function TweakNumber({ label, value, min, max, step = 1, unit = '', onChange }) {
+  const clamp = (n) => {
+    if (min != null && n < min) return min;
+    if (max != null && n > max) return max;
+    return n;
+  };
+  const startRef = React.useRef({ x: 0, val: 0 });
+  const onScrubStart = (e) => {
+    e.preventDefault();
+    startRef.current = { x: e.clientX, val: value };
+    const decimals = (String(step).split('.')[1] || '').length;
+    const move = (ev) => {
+      const dx = ev.clientX - startRef.current.x;
+      const raw = startRef.current.val + dx * step;
+      const snapped = Math.round(raw / step) * step;
+      onChange(clamp(Number(snapped.toFixed(decimals))));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
+  return (
+    <div className="twk-num">
+      <span className="twk-num-lbl" onPointerDown={onScrubStart}>{label}</span>
+      <input type="number" value={value} min={min} max={max} step={step}
+             onChange={(e) => onChange(clamp(Number(e.target.value)))} />
+      {unit && <span className="twk-num-unit">{unit}</span>}
+    </div>
+  );
+}
+
+// Relative-luminance contrast pick — checkmarks drawn over a swatch need to
+// read on both #111 and #fafafa without per-option configuration. Hex input
+// only (#rgb / #rrggbb); named or rgb()/hsl() colors fall through to "light".
+function __twkIsLight(hex) {
+  const h = String(hex).replace('#', '');
+  const x = h.length === 3 ? h.replace(/./g, (c) => c + c) : h.padEnd(6, '0');
+  const n = parseInt(x.slice(0, 6), 16);
+  if (Number.isNaN(n)) return true;
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+  return r * 299 + g * 587 + b * 114 > 148000;
+}
+
+const __TwkCheck = ({ light }) => (
+  <svg viewBox="0 0 14 14" aria-hidden="true">
+    <path d="M3 7.2 5.8 10 11 4.2" fill="none" strokeWidth="2.2"
+          strokeLinecap="round" strokeLinejoin="round"
+          stroke={light ? 'rgba(0,0,0,.78)' : '#fff'} />
+  </svg>
+);
+
+// TweakColor — curated color/palette picker. Each option is either a single
+// hex string or an array of 1-5 hex strings; the card adapts — a lone color
+// renders solid, a palette renders colors[0] as the hero (left ~2/3) with the
+// rest stacked in a sharp column on the right. onChange emits the
+// option in the shape it was passed (string stays string, array stays array).
+// Without options it falls back to the native color input for back-compat.
+function TweakColor({ label, value, options, onChange }) {
+  if (!options || !options.length) {
+    return (
+      <div className="twk-row twk-row-h">
+        <div className="twk-lbl"><span>{label}</span></div>
+        <input type="color" className="twk-swatch" value={value}
+               onChange={(e) => onChange(e.target.value)} />
+      </div>
+    );
+  }
+  // Native <input type=color> emits lowercase hex per the HTML spec, so
+  // compare case-insensitively. String() guards JSON.stringify(undefined),
+  // which returns the primitive undefined (no .toLowerCase).
+  const key = (o) => String(JSON.stringify(o)).toLowerCase();
+  const cur = key(value);
+  return (
+    <TweakRow label={label}>
+      <div className="twk-chips" role="radiogroup">
+        {options.map((o, i) => {
+          const colors = Array.isArray(o) ? o : [o];
+          const [hero, ...rest] = colors;
+          const sup = rest.slice(0, 4);
+          const on = key(o) === cur;
+          return (
+            <button key={i} type="button" className="twk-chip" role="radio"
+                    aria-checked={on} data-on={on ? '1' : '0'}
+                    aria-label={colors.join(', ')} title={colors.join(' · ')}
+                    style={{ background: hero }}
+                    onClick={() => onChange(o)}>
+              {sup.length > 0 && (
+                <span>
+                  {sup.map((c, j) => <i key={j} style={{ background: c }} />)}
+                </span>
+              )}
+              {on && <__TwkCheck light={__twkIsLight(hero)} />}
+            </button>
+          );
+        })}
+      </div>
+    </TweakRow>
+  );
+}
+
+function TweakButton({ label, onClick, secondary = false }) {
+  return (
+    <button type="button" className={secondary ? 'twk-btn secondary' : 'twk-btn'}
+            onClick={onClick}>{label}</button>
+  );
+}
+
+Object.assign(window, {
+  useTweaks, TweaksPanel, TweakSection, TweakRow,
+  TweakSlider, TweakToggle, TweakRadio, TweakSelect,
+  TweakText, TweakNumber, TweakColor, TweakButton,
+});
+
+</script>
+<script type="text/babel">
+/* eslint-disable */
+// icons.jsx — set de íconos línea (24x24, stroke currentColor)
+// Export a window.Icon (componente único con prop name) + helpers.
+const { createElement: h } = React;
+
+const P = {
+  ball: <><circle cx="12" cy="12" r="9"/><path d="M12 7.5l3.4 2.5-1.3 4h-4.2l-1.3-4z"/><path d="M12 7.5V4M15.4 10l3.1-1.4M14.1 14l1.9 2.8M9.9 14l-1.9 2.8M8.6 10L5.5 8.6"/></>,
+  calendar: <><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 9.5h17M8 3.5v3M16 3.5v3"/></>,
+  clock: <><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></>,
+  check: <path d="M5 12.5l4.5 4.5L19 7"/>,
+  checkCircle: <><circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.2l2.5 2.5 4.9-5"/></>,
+  plus: <path d="M12 5v14M5 12h14"/>,
+  undo: <><path d="M4 9h10.5a4.5 4.5 0 0 1 0 9H8"/><path d="M7 6L4 9l3 3"/></>,
+  user: <><circle cx="12" cy="8" r="4"/><path d="M4.5 20a7.5 7.5 0 0 1 15 0"/></>,
+  users: <><circle cx="9" cy="8.5" r="3.4"/><path d="M3 19.5a6 6 0 0 1 12 0"/><path d="M16 5.4a3.4 3.4 0 0 1 0 6.5M21 19.5a6 6 0 0 0-4.5-5.8"/></>,
+  cash: <><rect x="2.5" y="6" width="19" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/></>,
+  bank: <><path d="M4 10h16M4 10L12 4l8 6M6 10v7M10 10v7M14 10v7M18 10v7M3.5 20h17"/></>,
+  upload: <><path d="M12 16V5M8 9l4-4 4 4"/><path d="M4 16v3.5h16V16"/></>,
+  camera: <><path d="M3.5 8.5h3l1.5-2.5h6L15.5 8.5h3a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 2 17.5V10a1.5 1.5 0 0 1 1.5-1.5Z"/><circle cx="12" cy="13" r="3.2"/></>,
+  shield: <><path d="M12 3l7 2.5v5c0 4.5-3 7.8-7 9.5-4-1.7-7-5-7-9.5v-5z"/><path d="M9 12l2 2 4-4"/></>,
+  trophy: <><path d="M7 4h10v3a5 5 0 0 1-10 0z"/><path d="M7 5H4.5v1.5A3 3 0 0 0 7 9.4M17 5h2.5v1.5A3 3 0 0 1 17 9.4M9.5 13.5h5L14 20H10z"/><path d="M8.5 20h7"/></>,
+  list: <><path d="M8 6.5h12M8 12h12M8 17.5h12"/><circle cx="4" cy="6.5" r="1.3"/><circle cx="4" cy="12" r="1.3"/><circle cx="4" cy="17.5" r="1.3"/></>,
+  home: <><path d="M4 11l8-6.5 8 6.5"/><path d="M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/></>,
+  gear: <><circle cx="12" cy="12" r="3.2"/><path d="M12 3.5v2.2M12 18.3v2.2M20.5 12h-2.2M5.7 12H3.5M18 6l-1.6 1.6M7.6 16.4 6 18M18 18l-1.6-1.6M7.6 7.6 6 6"/></>,
+  chevL: <path d="M14.5 6l-6 6 6 6"/>,
+  chevR: <path d="M9.5 6l6 6-6 6"/>,
+  chevD: <path d="M6 9.5l6 6 6-6"/>,
+  x: <path d="M6 6l12 12M18 6L6 18"/>,
+  pin: <><path d="M12 21c4-4.5 6.5-7.8 6.5-11A6.5 6.5 0 0 0 5.5 10c0 3.2 2.5 6.5 6.5 11Z"/><circle cx="12" cy="10" r="2.4"/></>,
+  copy: <><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 8.5V6a2 2 0 0 0-2-2h-7a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h2.5"/></>,
+  lock: <><rect x="5" y="10.5" width="14" height="9.5" rx="2.2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/><circle cx="12" cy="15" r="1.3"/></>,
+  mail: <><rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M4 7l8 5.5L20 7"/></>,
+  phone: <path d="M6.5 4h3l1.5 4-2 1.5a11 11 0 0 0 5 5l1.5-2 4 1.5v3a2 2 0 0 1-2.2 2A16 16 0 0 1 4.5 6.2 2 2 0 0 1 6.5 4Z"/>,
+  star: <path d="M12 4l2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.6-4.8 2.6.9-5.4L4.2 9.7l5.4-.8z"/>,
+  alert: <><path d="M12 4l9 16H3z"/><path d="M12 10v4.5M12 17.3v.2"/></>,
+  flame: <path d="M12 3s5 4 5 9a5 5 0 0 1-10 0c0-1.5.6-2.6 1.3-3.4C8.8 9.8 9 11 10 11c0-2.5 2-3.8 2-8z"/>,
+  wallet: <><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10h18"/><circle cx="16.5" cy="13.5" r="1.2"/></>,
+  whatsapp: <><path d="M4 20l1.3-3.9A7.5 7.5 0 1 1 8 19.2z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5.6 0 1-.6.7-1.1l-.7-1.2-1.6.5-1.6-1.6.5-1.6-1.2-.7c-.5-.3-1.6.1-1.6.7z"/></>,
+  arrowR: <path d="M5 12h14M14 6l6 6-6 6"/>,
+  share: <><circle cx="6" cy="12" r="2.4"/><circle cx="17" cy="6" r="2.4"/><circle cx="17" cy="18" r="2.4"/><path d="M8.2 11l6.6-3.6M8.2 13l6.6 3.6"/></>,
+  receipt: <><path d="M6 3.5h12v17l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3z"/><path d="M9 8h6M9 11.5h6M9 15h3"/></>,
+  filter: <path d="M4 6h16l-6 7v5l-4 2v-7z"/>,
+  bell: <><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2H4.5z"/><path d="M9.5 18a2.5 2.5 0 0 0 5 0"/></>,
+  eye: <><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="2.8"/></>,
+  shirt: <><path d="M8 4l-4 2.5 1.8 3L8 8.5V20h8V8.5l2.2 1L20 6.5 16 4a2.4 2.4 0 0 1-8 0Z"/></>,
+  logout: <><path d="M14 7V5a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2v-2"/><path d="M10 12h11M18 9l3 3-3 3"/></>,
+};
+
+function Icon({ name, size = 22, stroke = 2, className, style, title }) {
+  const path = P[name];
+  if (!path) return null;
+  return h('svg', {
+    width: size, height: size, viewBox: '0 0 24 24', fill: 'none',
+    stroke: 'currentColor', strokeWidth: stroke, strokeLinecap: 'round',
+    strokeLinejoin: 'round', className, style,
+    'aria-hidden': title ? undefined : true, role: title ? 'img' : undefined,
+    focusable: 'false',
+  }, title ? h('title', null, title) : null, path);
+}
+
+window.Icon = Icon;
+
+</script>
+<script type="text/babel">
+/* eslint-disable */
+// data.jsx — datos de ejemplo (español de Chile)
+
+const AVATARS = ["#1b7a3d","#f2641a","#2f5aa0","#9a4bc4","#c43b5e","#0f8f86","#c98a12","#5a6cc4","#b5532a","#2f8f4e"];
+const avatarColor = (seed) => AVATARS[(seed*7+3) % AVATARS.length];
+const initials = (name) => name.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase();
+
+// reputación de pago: tier por score 0–100
+function repTier(score){
+  if (score >= 90) return { key:"crack",  label:"Crack del pago", color:"var(--verde-600)", icon:"shield" };
+  if (score >= 70) return { key:"cumple", label:"Cumplidor",      color:"var(--info)",      icon:"checkCircle" };
+  if (score >= 45) return { key:"ahi",    label:"Ahí nomás",      color:"var(--warn)",      icon:"clock" };
+  return            { key:"moroso", label:"Moroso",          color:"var(--danger)",    icon:"alert" };
+}
+
+const PLAYERS = [
+  { id:1,  name:"Tú (Nico Soto)",  alias:"nico",     rep:96, jugados:38, pagados:38, debe:0,     me:true, streak: 7 },
+  { id:2,  name:"Pancho Reyes",    alias:"pancho",   rep:99, jugados:51, pagados:51, debe:0 },
+  { id:3,  name:"Cata Muñoz",      alias:"cata",     rep:93, jugados:29, pagados:29, debe:0 },
+  { id:4,  name:"Feña Tapia",      alias:"feña",     rep:88, jugados:33, pagados:32, debe:0 },
+  { id:5,  name:"Manu Vidal",      alias:"manu",     rep:76, jugados:24, pagados:22, debe:0 },
+  { id:6,  name:"Checho Lara",     alias:"checho",   rep:71, jugados:19, pagados:17, debe:0 },
+  { id:7,  name:"Dani Pizarro",    alias:"dani",     rep:58, jugados:16, pagados:12, debe:3500 },
+  { id:8,  name:"Galleta Rojas",   alias:"galleta",  rep:41, jugados:14, pagados:8,  debe:7000 },
+  { id:9,  name:"Tincho Bravo",    alias:"tincho",   rep:34, jugados:11, pagados:6,  debe:10500 },
+  { id:10, name:"Beto Cáceres",    alias:"beto",     rep:62, jugados:18, pagados:14, debe:3500 },
+  { id:11, name:"Lucho Fuentes",   alias:"lucho",    rep:84, jugados:27, pagados:26, debe:0 },
+  { id:12, name:"Vicho Salas",     alias:"vicho",    rep:90, jugados:30, pagados:30, debe:0 },
+];
+const playerById = (id) => PLAYERS.find(p=>p.id===id);
+const ME = PLAYERS[0];
+
+// genera cupos: estados mezclados. owners = array de {n, pid, state, when}
+function buildSpots(total, fills){
+  const spots = [];
+  for (let n=1; n<=total; n++){
+    const f = fills[n];
+    if (f) spots.push({ n, state:f.state, pid:f.pid||null, when:f.when||null });
+    else spots.push({ n, state:"libre", pid:null, when:null });
+  }
+  return spots;
+}
+
+// Partido estrella (detalle) — Baby fútbol 7v7 = 14 cupos
+const STAR_FILLS = {
+  1:{state:"pagado",pid:2,when:"hace 2 d"}, 2:{state:"pagado",pid:3,when:"hace 2 d"},
+  3:{state:"pagado",pid:11,when:"ayer"},   4:{state:"pagado",pid:12,when:"ayer"},
+  5:{state:"pagado",pid:4,when:"ayer"},    6:{state:"pagado",pid:1,when:"hoy 10:12"},
+  7:{state:"pendiente",pid:5,when:"hace 40 min"}, 8:{state:"pendiente",pid:6,when:"hace 12 min"},
+  9:{state:"pagado",pid:10,when:"hoy 09:30"},
+  10:{state:"liberado",pid:null,when:"se liberó hace 5 min"},
+  12:{state:"pendiente",pid:7,when:"hace 3 min"},
+  13:{state:"pagado",pid:8,when:"hoy 08:50"},
+};
+
+const MATCHES = [
+  {
+    id:"m1", titulo:"Partido del Jueves", formato:"Baby fútbol · 7 vs 7",
+    cancha:"Complejo La Bombonera", comuna:"Ñuñoa", dia:"Jue 12 jun", hora:"20:00", dur:"60 min",
+    precio:3500, organizador:2, total:14, destacado:true,
+    spots: buildSpots(14, STAR_FILLS),
+    nota:"Llevar peto claro y oscuro. Puntualidad: la cancha es justa de tiempo 🙏",
+  },
+  {
+    id:"m2", titulo:"Fútbol 11 Dominical", formato:"Fútbol · 11 vs 11",
+    cancha:"Estadio Municipal", comuna:"Maipú", dia:"Dom 15 jun", hora:"10:00", dur:"90 min",
+    precio:5000, organizador:11, total:22, destacado:false,
+    spots: buildSpots(22, {
+      1:{state:"pagado",pid:2},2:{state:"pagado",pid:3},3:{state:"pagado",pid:4},
+      4:{state:"pagado",pid:11},5:{state:"pagado",pid:12},6:{state:"pendiente",pid:5},
+      7:{state:"pendiente",pid:6},8:{state:"pagado",pid:1},9:{state:"liberado"},
+      10:{state:"pagado",pid:10},11:{state:"pendiente",pid:7},
+    }),
+    nota:"Cancha de pasto natural. Estacionamiento por calle lateral.",
+  },
+  {
+    id:"m3", titulo:"Futbolito de las Minas", formato:"Futbolito · 5 vs 5",
+    cancha:"Cancha El Bosque", comuna:"La Florida", dia:"Sáb 14 jun", hora:"18:30", dur:"60 min",
+    precio:3000, organizador:3, total:10, destacado:false,
+    spots: buildSpots(10, {
+      1:{state:"pagado",pid:3},2:{state:"pagado",pid:4},3:{state:"pagado",pid:12},
+      4:{state:"pendiente",pid:5},5:{state:"pagado",pid:1},6:{state:"libre"},
+    }),
+    nota:"Mixto bienvenido. Buena onda siempre 💪",
+  },
+  {
+    id:"m4", titulo:"Partido Después de Pega", formato:"Baby fútbol · 7 vs 7",
+    cancha:"Domos San Joaquín", comuna:"San Joaquín", dia:"Mié 11 jun", hora:"21:00", dur:"60 min",
+    precio:4000, organizador:1, total:14, destacado:false,
+    spots: buildSpots(14, {
+      1:{state:"pagado",pid:2},2:{state:"pagado",pid:6},3:{state:"pagado",pid:10},
+      4:{state:"pagado",pid:11},5:{state:"pagado",pid:12},6:{state:"pagado",pid:4},
+      7:{state:"pagado",pid:3},8:{state:"pendiente",pid:5},9:{state:"pendiente",pid:7},
+      10:{state:"pagado",pid:1},11:{state:"pagado",pid:9},12:{state:"pagado",pid:8},
+      13:{state:"pendiente",pid:11},14:{state:"pendiente",pid:4},
+    }),
+    nota:"Yo organizo esta 😎 — caja al día, paguen altiro.",
+    miOrg:true,
+  },
+  {
+    id:"m5", titulo:"Picha de los Viernes", formato:"Baby fútbol · 7 vs 7",
+    cancha:"Cancha Las Encinas", comuna:"Providencia", dia:"Vie 13 jun", hora:"21:00", dur:"60 min",
+    precio:4500, organizador:11, total:14, destacado:false, llena:true, waitlistCount:3,
+    spots: buildSpots(14, {
+      1:{state:"pagado",pid:2},2:{state:"pagado",pid:3},3:{state:"pagado",pid:4},
+      4:{state:"pagado",pid:11},5:{state:"pagado",pid:12},6:{state:"pagado",pid:6},
+      7:{state:"pagado",pid:8},8:{state:"pendiente",pid:10,when:"hace 20 min"},
+      9:{state:"pagado",pid:5},10:{state:"pagado",pid:7},11:{state:"pagado",pid:9},
+      12:{state:"pendiente",pid:4,when:"hace 15 min"},
+      13:{state:"pendiente",pid:6,when:"hace 10 min"},
+      14:{state:"pendiente",pid:11,when:"hace 5 min"},
+    }),
+    nota:"Cancha techada. Si llueve igual se juega.",
+  },
+];
+
+// countdown al inicio del partido — offsets en horas desde "ahora"
+(function attachCountdowns(){
+  const NOW = Date.now();
+  const OFFSETS_H = { m1: 38, m2: 80, m3: 50, m4: 2.5, m5: 22 };
+  MATCHES.forEach(m => { m.targetMs = NOW + (OFFSETS_H[m.id] || 24) * 60 * 60 * 1000; });
+})();
+
+// datos de transferencia del organizador
+const TRANSFER = {
+  nombre:"Francisco Reyes M.",
+  rut:"16.482.913-7",
+  banco:"Banco Estado",
+  tipo:"Cuenta RUT",
+  cuenta:"16482913",
+  email:"pancho.reyes@gmail.com",
+  alias:"@pancho_pichanga",
+};
+
+const STATE_META = {
+  libre:     { label:"Libre",     icon:"plus",        desc:"Cupo disponible" },
+  pendiente: { label:"Pendiente", icon:"clock",       desc:"Reservó, falta confirmar pago" },
+  pagado:    { label:"Pagado",    icon:"check",       desc:"Pago confirmado" },
+  liberado:  { label:"Liberado",  icon:"undo",        desc:"Se liberó, disponible de nuevo" },
+};
+
+const CLP = (n) => "$" + n.toLocaleString("es-CL");
+
+Object.assign(window, {
+  PLAYERS, ME, MATCHES, TRANSFER, STATE_META, CLP,
+  playerById, avatarColor, initials, repTier, buildSpots,
+});
+
+</script>
+<script type="text/babel">
+/* eslint-disable */
+// components.jsx — bloques reutilizables. Exporta a window.
+const { useState, useRef, useEffect } = React;
+
+/* ---------- Avatar ---------- */
+function Avatar({ player, size = 36, ring }) {
+  const color = player ? avatarColor(player.id) : "var(--linea-fuerte)";
+  return (
+    <div className="av" style={{
+      width: size, height: size, background: color,
+      fontSize: Math.round(size * 0.4),
+      boxShadow: ring ? "0 0 0 2px #fff, 0 0 0 4px " + color : "none",
+    }} aria-hidden="true">
+      {player ? initials(player.name.replace("Tú (", "").replace(")", "")) : "?"}
+    </div>
+  );
+}
+
+/* ---------- Badge de reputación ---------- */
+function RepBadge({ score, small, showScore = true }) {
+  const t = repTier(score);
+  return (
+    <span className={"rep" + (small ? " rep-sm" : "")} title={t.label + " · " + score + "/100"}>
+      <span className="rep-dot" style={{ background: t.color }}>
+        <Icon name={t.icon} size={small ? 11 : 13} stroke={2.4} />
+      </span>
+      <span>{t.label}{showScore && <span className="muted-2 num" style={{ fontWeight: 600 }}> · {score}</span>}</span>
+    </span>
+  );
+}
+
+/* ---------- Barra de progreso "X de Y pagados" ---------- */
+function ProgressBar({ spots, total, showLegend = true }) {
+  const pagados = spots.filter(s => s.state === "pagado").length;
+  const pend = spots.filter(s => s.state === "pendiente").length;
+  // count-up animado (~650ms easeOutCubic) cuando suben los pagos
+  const [display, setDisplay] = useState(pagados);
+  const [bump, setBump] = useState(false);
+  const prev = useRef(pagados);
+  useEffect(() => {
+    if (prev.current === pagados) return;
+    const from = prev.current; const to = pagados;
+    prev.current = pagados;
+    if (to > from) { setBump(true); }
+    const t0 = performance.now(); const dur = 700; let raf;
+    const step = (t) => {
+      const p = Math.min(1, (t - t0) / dur);
+      const e = 1 - Math.pow(1 - p, 3);
+      setDisplay(Math.round(from + (to - from) * e));
+      if (p < 1) raf = requestAnimationFrame(step);
+    };
+    raf = requestAnimationFrame(step);
+    const tm = setTimeout(() => setBump(false), 720);
+    return () => { cancelAnimationFrame(raf); clearTimeout(tm); };
+  }, [pagados]);
+  const pct = Math.round((display / total) * 100);
+  return (
+    <div className="prog">
+      <div className="prog-head">
+        <div className={"prog-count num" + (bump ? " is-up" : "")}><b>{display}</b> de {total} pagados</div>
+        <div className="prog-pct num">{pct}%</div>
+      </div>
+      <div className="prog-track" role="img" aria-label={pagados + " pagados, " + pend + " pendientes, de " + total}>
+        <span className="prog-seg-pago" style={{ width: (display / total * 100) + "%" }} />
+        <span className="prog-seg-pend" style={{ width: (pend / total * 100) + "%" }} />
+      </div>
+      {showLegend && (
+        <div className="prog-legend num">
+          <span><i style={{ background: "var(--verde-600)" }} />{pagados} pagados</span>
+          <span><i style={{ background: "var(--st-pend-solid)" }} />{pend} pendientes</span>
+          <span><i style={{ background: "var(--lienzo-2)", border: "1px solid var(--linea)" }} />{total - pagados - pend} libres</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------- Leyenda de estados ---------- */
+function StateLegend() {
+  return (
+    <div className="legend">
+      {["libre", "pendiente", "pagado", "liberado"].map(k => {
+        const m = STATE_META[k];
+        return (
+          <div className="legend-item" key={k}>
+            <span className={"legend-swatch s-" + k}><Icon name={m.icon} size={14} stroke={2.4} /></span>
+            <span><b style={{ color: "var(--tinta)" }}>{m.label}</b> · {m.desc}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ---------- Tile de cupo ---------- */
+function Spot({ spot, onTap, isStatic }) {
+  const m = STATE_META[spot.state];
+  const player = spot.pid ? playerById(spot.pid) : null;
+  const mine = player && player.me;
+  const interactive = !isStatic && (spot.state === "libre" || spot.state === "liberado");
+  const [justPaid, setJustPaid] = useState(false);
+  const prevState = useRef(spot.state);
+  useEffect(() => {
+    const prev = prevState.current;
+    prevState.current = spot.state;
+    if (prev !== "pagado" && spot.state === "pagado") {
+      setJustPaid(true);
+      try { navigator.vibrate && navigator.vibrate(14); } catch (e) {}
+      const t = setTimeout(() => setJustPaid(false), 760);
+      return () => clearTimeout(t);
+    }
+  }, [spot.state]);
+  const cls = ["spot", "s-" + spot.state, mine ? "s-mine" : "", isStatic ? "is-static" : "", justPaid ? "is-just-paid" : ""].join(" ");
+  const label =
+    spot.state === "libre" ? "Cupo " + spot.n + " libre, tomar" :
+    spot.state === "liberado" ? "Cupo " + spot.n + " liberado, tomar" :
+    "Cupo " + spot.n + ", " + m.label + (player ? ", " + player.name : "");
+  return (
+    <button className={cls} onClick={() => onTap && onTap(spot)}
+      aria-label={label} tabIndex={isStatic ? -1 : 0}>
+      <Icon className="spot-ico" name={m.icon} size={14} stroke={2.6} />
+      <span className="spot-num num">{String(spot.n).padStart(2, "0")}</span>
+      {(spot.state === "libre") && <span className="spot-lbl">Libre</span>}
+      {(spot.state === "liberado") && <span className="spot-lbl">Libre*</span>}
+      {(spot.state === "pendiente" || spot.state === "pagado") && player && (
+        <span className="spot-who">{player.me ? "Tú" : player.name.split(" ")[0]}</span>
+      )}
+    </button>
+  );
+}
+
+/* ---------- Grilla de cupos ---------- */
+function SpotGrid({ spots, onTapSpot, isStatic }) {
+  return (
+    <div className="spot-grid" role="list">
+      {spots.map(s => <Spot key={s.n} spot={s} onTap={onTapSpot} isStatic={isStatic} />)}
+    </div>
+  );
+}
+
+/* ---------- Card de partido ---------- */
+function MatchCard({ match, onOpen, active }) {
+  const [dnum, dmon] = (() => {
+    const parts = match.dia.split(" "); // "Jue 12 jun"
+    return [parts[1], parts[2]];
+  })();
+  const pagados = match.spots.filter(s => s.state === "pagado").length;
+  return (
+    <button className="match-card" onClick={() => onOpen(match)} aria-current={active ? "true" : undefined}>
+      <div className="mc-top">
+        <div className="mc-date">
+          <div className="d num">{dnum}</div>
+          <div className="m">{dmon}</div>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="mc-title">{match.titulo}</div>
+          <div className="mc-sub">
+            <Icon name="clock" size={14} /> {match.hora}
+            <span aria-hidden="true">·</span>
+            <Icon name="pin" size={14} /> {match.comuna}
+          </div>
+        </div>
+        {match.miOrg && <span className="tag tag-naranjo only-desktop"><Icon name="shirt" size={12} /> Organizas</span>}
+      </div>
+      <div className="mc-body">
+        <div className="mc-meta">
+          <span><Icon name="ball" size={15} /> {match.formato}</span>
+          <span><b className="num">{CLP(match.precio)}</b> / cupo</span>
+        </div>
+        <ProgressBar spots={match.spots} total={match.total} showLegend={false} />
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <span className="muted-2" style={{ fontSize: "var(--fs-sm)" }}>
+            {match.total - pagados} cupos por pagar
+          </span>
+          <span className="tag tag-verde">Ver lista <Icon name="chevR" size={13} /></span>
+        </div>
+      </div>
+    </button>
+  );
+}
+
+/* ---------- Copy row (datos transferencia) ---------- */
+function CopyRow({ k, v, mono }) {
+  const [done, setDone] = useState(false);
+  const copy = () => {
+    try { navigator.clipboard && navigator.clipboard.writeText(String(v)); } catch (e) {}
+    try { navigator.vibrate && navigator.vibrate(10); } catch (e) {}
+    setDone(true); setTimeout(() => setDone(false), 1400);
+  };
+  return (
+    <div className={"copy-row" + (done ? " is-done" : "")}>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div className="k">{k}</div>
+        <div className={"v" + (mono ? " num" : "")} style={{ wordBreak: "break-word" }}>{v}</div>
+      </div>
+      <button className={"btn btn-soft" + (done ? " is-pop" : "")} style={{ minHeight: 40, padding: "0 14px" }} onClick={copy} aria-label={"Copiar " + k}>
+        <Icon name={done ? "check" : "copy"} size={16} /> {done ? "Listo" : "Copiar"}
+      </button>
+    </div>
+  );
+}
+
+/* ---------- Banner ---------- */
+function Banner({ kind = "info", icon, children }) {
+  const ic = icon || (kind === "warn" ? "alert" : kind === "ok" ? "checkCircle" : "bell");
+  return (
+    <div className={"banner banner-" + kind}>
+      <Icon name={ic} size={18} stroke={2.2} style={{ flex: "0 0 auto", marginTop: 1 }} />
+      <div>{children}</div>
+    </div>
+  );
+}
+
+/* ---------- Sheet (modal inferior móvil / centrado desktop) ---------- */
+function Sheet({ open, onClose, children, labelledby }) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+  if (!open) return null;
+  return (
+    <div className="scrim" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby={labelledby}>
+      <div className="sheet" onClick={e => e.stopPropagation()}>
+        <div className="sheet-grab" />
+        {children}
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, {
+  Avatar, RepBadge, ProgressBar, StateLegend, Spot, SpotGrid, MatchCard, CopyRow, Banner, Sheet,
+});
+
+</script>
+<script type="text/babel">
+/* eslint-disable */
+// screen-auth-list.jsx — Auth, lista de partidos, detalle con grilla. Exporta a window.
+const { useState: useStateA, useEffect: useEffectA } = React;
+
+/* =========================================================
+   HERO: "Cupos llenándose" — animación de la página principal
+   Muestra el mecanismo del producto: cupos pasan de libre →
+   pendiente (amarillo punteado) → pagado (verde con ✓), termina
+   en "¡Pichanga armada!" y vuelve a empezar.
+   Respeta prefers-reduced-motion.
+   ========================================================= */
+function PichangaFillHero({ compact }) {
+  const COUNT = compact ? 8 : 12;
+  const [step, setStep] = useStateA(0);
+  const [phase, setPhase] = useStateA("filling");
+
+  useEffectA(() => {
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) { setStep(COUNT); setPhase("armada"); return; }
+
+    let cancelled = false;
+    const timers = [];
+    const tick = compact ? 300 : 360;     // ms entre tile y tile
+    const armadaHold = 1900;              // ms con la pichanga armada
+    const blank = 700;                    // ms de descanso antes de loop
+
+    function cycle() {
+      if (cancelled) return;
+      setStep(0); setPhase("filling");
+      for (let i = 1; i <= COUNT; i++) {
+        timers.push(setTimeout(() => { if (!cancelled) setStep(i); }, i * tick));
+      }
+      timers.push(setTimeout(() => { if (!cancelled) setPhase("armada"); }, COUNT * tick + 60));
+      timers.push(setTimeout(cycle, COUNT * tick + armadaHold + blank));
+    }
+    cycle();
+    return () => { cancelled = true; timers.forEach(clearTimeout); };
+  }, [COUNT, compact]);
+
+  const filled = phase === "armada" ? COUNT : step;
+
+  return (
+    <div className={"hero-fill" + (compact ? " hf-compact" : "")} aria-hidden="true">
+      <div className={"hero-fill-grid" + (phase === "armada" ? " is-armada" : "")}>
+        {Array.from({ length: COUNT }).map((_, i) => {
+          const state = i < step ? "pagado" : (i === step && phase === "filling") ? "pendiente" : "libre";
+          return (
+            <div className={"hf-tile is-" + state} key={i} style={{ "--i": i }}>
+              <span className="hf-num num">{String(i + 1).padStart(2, "0")}</span>
+              <Icon name="check" size={compact ? 16 : 22} className="hf-check" stroke={2.8} />
+            </div>
+          );
+        })}
+      </div>
+      <div className="hero-fill-foot">
+        <div className="hero-fill-track" role="presentation">
+          <span style={{ width: (filled / COUNT * 100) + "%" }} />
+        </div>
+        <div className={"hero-fill-cap" + (phase === "armada" ? " is-armada" : "")}>
+          {phase === "armada"
+            ? (<><Icon name="checkCircle" size={15} stroke={2.4} /> ¡Partido armado!</>)
+            : (<><span className="num"><b>{step}</b>/{COUNT}</span> pagados</>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function useMediaQuery(q) {
+  const [m, setM] = useStateA(() => window.matchMedia(q).matches);
+  useEffectA(() => {
+    const mm = window.matchMedia(q);
+    const on = () => setM(mm.matches);
+    mm.addEventListener ? mm.addEventListener("change", on) : mm.addListener(on);
+    return () => mm.removeEventListener ? mm.removeEventListener("change", on) : mm.removeListener(on);
+  }, [q]);
+  return m;
+}
+
+/* =========================================================
+   AUTH — login / registro
+   ========================================================= */
+function AuthScreen({ onEnter }) {
+  const [mode, setMode] = useStateA("login");
+  const reg = mode === "registro";
+  return (
+    <div className="auth-stage">
+      <video className="auth-stage-bg" autoPlay muted loop playsInline preload="auto" aria-hidden="true"
+        onCanPlay={(e) => { const p = e.target.play(); if (p && p.catch) p.catch(() => {}); }}>
+        <source src={(window.__resources && window.__resources.authVideo) || "assets/auth-bg.mp4"} type="video/mp4" />
+      </video>
+      <div aria-hidden="true" className="auth-stage-tint" />
+
+      <header className="auth-topbar">
+        <div className="brand" style={{ padding: 0 }}>
+          <div className="brand-mark" style={{ background: "rgba(255,255,255,.16)" }}><Icon name="ball" size={22} /></div>
+          <span className="brand-name" style={{ color: "#fff" }}>De<b style={{ color: "var(--verde-400)" }}>Barrio</b></span>
+        </div>
+      </header>
+
+      <main className="auth-main">
+        <div className="auth-col">
+          <div className="auth-lede">
+            <h1 className="auth-title">El partido se arma solo cuando <em>todos pagan</em>.</h1>
+          </div>
+
+          <div className="auth-card">
+            <div className="auth-seg" role="tablist">
+              <button type="button" role="tab" className={"auth-seg-btn" + (!reg ? " is-on" : "")} onClick={() => setMode("login")}>Entrar</button>
+              <button type="button" role="tab" className={"auth-seg-btn" + (reg ? " is-on" : "")} onClick={() => setMode("registro")}>Crear cuenta</button>
+            </div>
+            <p className="auth-card-sub">
+              {reg ? "Te toma 30 segundos. Pura buena onda." : "Entra y mira en qué quedó el partido."}
+            </p>
+
+          <div className="section" style={{ gap: 14, marginTop: 18 }}>
+            {reg && (
+              <div className="field">
+                <label htmlFor="nm">Nombre y apodo</label>
+                <input id="nm" className="input" placeholder="Ej: Nico Soto (nico)" defaultValue="" />
+              </div>
+            )}
+            <div className="field">
+              <label htmlFor="ph">Número de celular</label>
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--tinta-50)", display: "flex" }}><Icon name="phone" size={18} /></span>
+                <input id="ph" className="input num" style={{ paddingLeft: 44 }} placeholder="+56 9 ____ ____" inputMode="tel" />
+              </div>
+            </div>
+            <div className="field">
+              <label htmlFor="pw">Contraseña</label>
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--tinta-50)", display: "flex" }}><Icon name="lock" size={18} /></span>
+                <input id="pw" className="input" type="password" style={{ paddingLeft: 44 }} placeholder="••••••••" />
+              </div>
+              {!reg && <a className="hint" style={{ color: "var(--verde-700)", fontWeight: 650, textDecoration: "none", alignSelf: "flex-end" }} href="#">¿Se te olvidó?</a>}
+            </div>
+
+            <button className="btn btn-primary btn-lg btn-block" onClick={onEnter} style={{ marginTop: 4 }}>
+              {reg ? "Crear cuenta y entrar" : "Entrar"} <Icon name="arrowR" size={19} />
+            </button>
+
+            <div className="row" style={{ gap: 12, margin: "4px 0" }}>
+              <hr className="divider" style={{ flex: 1 }} />
+              <span className="muted-2" style={{ fontSize: 13 }}>o</span>
+              <hr className="divider" style={{ flex: 1 }} />
+            </div>
+            <button className="btn btn-ghost btn-lg btn-block" onClick={onEnter}>
+              <Icon name="whatsapp" size={19} /> Entrar con WhatsApp
+            </button>
+          </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/* =========================================================
+   DETALLE DE PARTIDO (panel reutilizable)
+   ========================================================= */
+function MatchDetail({ match, onTapSpot, onTakeNext, onBack, onPay, onOrganize, embedded }) {
+  const org = playerById(match.organizador);
+  const mine = match.spots.find(s => s.pid && playerById(s.pid) && playerById(s.pid).me);
+  const libres = match.spots.filter(s => s.state === "libre" || s.state === "liberado").length;
+  return (
+    <div className="section" style={{ gap: "var(--s-5)" }}>
+      {!embedded && (
+        <button className="btn btn-quiet only-mobile" style={{ alignSelf: "flex-start", paddingLeft: 8 }} onClick={onBack}>
+          <Icon name="chevL" size={18} /> Partidos
+        </button>
+      )}
+
+      {/* encabezado */}
+      <div className="card" style={{ overflow: "hidden" }}>
+        <div style={{
+          padding: "var(--s-5)", color: "#fff", position: "relative",
+          background: "linear-gradient(155deg, var(--verde-600), var(--verde-700))",
+        }}>
+          <div aria-hidden="true" style={{ position: "absolute", inset: 0, opacity: .12, background: "repeating-linear-gradient(125deg,#fff 0 2px,transparent 2px 52px)" }} />
+          <div style={{ position: "relative" }}>
+            <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+              <span className="tag" style={{ background: "rgba(255,255,255,.2)", color: "#fff" }}><Icon name="ball" size={12} /> {match.formato}</span>
+              {match.miOrg && <span className="tag tag-naranjo"><Icon name="shirt" size={12} /> Organizas tú</span>}
+            </div>
+            <h1 style={{ fontSize: "var(--fs-2xl)", fontWeight: 800, letterSpacing: "-.02em", margin: "12px 0 10px", lineHeight: 1.08 }}>{match.titulo}</h1>
+            <div className="row row-wrap" style={{ gap: "var(--s-4)", fontSize: "var(--fs-sm)", color: "rgba(255,255,255,.92)", fontWeight: 600 }}>
+              <span className="row" style={{ gap: 6 }}><Icon name="calendar" size={15} /> {match.dia}</span>
+              <span className="row" style={{ gap: 6 }}><Icon name="clock" size={15} /> {match.hora} · {match.dur}</span>
+              <span className="row" style={{ gap: 6 }}><Icon name="pin" size={15} /> {match.cancha}, {match.comuna}</span>
+            </div>
+          </div>
+        </div>
+        <div className="card-pad" style={{ display: "flex", flexDirection: "column", gap: "var(--s-4)" }}>
+          <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div className="row" style={{ gap: 10 }}>
+              <Avatar player={org} size={42} />
+              <div>
+                <div style={{ fontSize: 12, color: "var(--tinta-50)", fontWeight: 600 }}>Organiza</div>
+                <div style={{ fontWeight: 750 }}>{org.name}</div>
+              </div>
+            </div>
+            <RepBadge score={org.rep} small />
+          </div>
+          <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--tinta-50)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".03em" }}>Valor por cupo</div>
+              <div className="num" style={{ fontSize: "var(--fs-2xl)", fontWeight: 800, letterSpacing: "-.02em", color: "var(--verde-700)" }}>{CLP(match.precio)}</div>
+            </div>
+            <button className="btn btn-ghost" onClick={() => alert("Abriría WhatsApp del organizador")}>
+              <Icon name="whatsapp" size={18} /> Contactar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* AVISO DEL ORGANIZADOR — notificación importante, bien visible y arriba */}
+      {match.nota && (
+        <div role="status" style={{
+          display: "flex", gap: "var(--s-3)", padding: "var(--s-4)", borderRadius: "var(--r-lg)",
+          background: "var(--naranjo-50)", border: "1.5px solid var(--naranjo-200)",
+          boxShadow: "var(--sh-sm)", alignItems: "flex-start",
+        }}>
+          <span style={{ width: 40, height: 40, borderRadius: 11, background: "var(--naranjo-500)", color: "#fff", display: "grid", placeItems: "center", flex: "0 0 auto", boxShadow: "0 4px 10px rgba(242,100,26,.35)" }}>
+            <Icon name="bell" size={21} stroke={2.3} />
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div className="eyebrow" style={{ marginBottom: 3 }}>Aviso del organizador</div>
+            <div style={{ fontWeight: 600, color: "var(--tinta)", lineHeight: 1.45, fontSize: "var(--fs-md)" }}>{match.nota}</div>
+          </div>
+        </div>
+      )}
+
+      {/* progreso */}
+      <div className="card card-pad">
+        <ProgressBar spots={match.spots} total={match.total} />
+      </div>
+
+      {/* grilla */}
+      <div className="card card-pad grid-wrap">
+        <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+          <h2 className="h-lg"><Icon name="ball" size={20} style={{ verticalAlign: "-3px", color: "var(--verde-600)" }} /> Lista de cupos</h2>
+          <span className="tag tag-muted num">{libres} libres</span>
+        </div>
+        <SpotGrid spots={match.spots} onTapSpot={(spot) => onTapSpot(match, spot)} />
+        <hr className="divider" />
+        <StateLegend />
+      </div>
+
+
+      {/* acciones */}
+      <div className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 12, position: embedded ? "static" : "sticky", bottom: 0 }}>
+        {mine ? (
+          <>
+            <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+              <span className="row" style={{ gap: 8, fontWeight: 700 }}>
+                <span className={"legend-swatch s-" + mine.state} style={{ width: 30, height: 30 }}><Icon name={STATE_META[mine.state].icon} size={15} /></span>
+                Tienes el cupo {String(mine.n).padStart(2, "0")} · {STATE_META[mine.state].label}
+              </span>
+            </div>
+            {mine.state === "pendiente"
+              ? <button className="btn btn-accent btn-lg btn-block" onClick={() => onPay(match, mine)}><Icon name="upload" size={19} /> Subir comprobante de pago</button>
+              : <button className="btn btn-soft btn-lg btn-block" disabled><Icon name="checkCircle" size={19} /> Cupo confirmado — ¡nos vemos en la cancha!</button>}
+          </>
+        ) : (
+          <button className="btn btn-primary btn-lg btn-block" onClick={() => onTakeNext(match)} disabled={libres === 0}>
+            <Icon name="plus" size={20} /> {libres === 0 ? "No quedan cupos" : "Tomar mi cupo · " + CLP(match.precio)}
+          </button>
+        )}
+        {match.miOrg && (
+          <button className="btn btn-ghost btn-block" onClick={() => onOrganize(match)}>
+            <Icon name="shirt" size={18} /> Abrir panel de organizador
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   PARTIDOS — lista (móvil) + split (desktop)
+   ========================================================= */
+function PartidosView({ matches, selectedId, onSelect, detailOpen, onTapSpot, onTakeNext, onBack, onPay, onOrganize }) {
+  const isDesktop = useMediaQuery("(min-width:1024px)");
+  const [filter, setFilter] = useStateA("todos");
+  const selected = matches.find(m => m.id === selectedId) || matches[0];
+
+  const filtered = matches.filter(m => {
+    if (filter === "miorg") return m.miOrg;
+    if (filter === "anotado") return m.spots.some(s => s.pid && playerById(s.pid).me);
+    return true;
+  });
+
+  const List = (
+    <div className="section">
+      <div className="page-head" style={{ marginBottom: 0 }}>
+        <div>
+          <h1 className="h-xl">Próximos partidos</h1>
+        </div>
+        <button className="btn btn-soft only-desktop"><Icon name="plus" size={18} /> Armar partido</button>
+      </div>
+      <div className="chip-row" role="tablist" aria-label="Filtro de partidos">
+        {[["todos", "Todas"], ["anotado", "Donde voy"], ["miorg", "Que organizo"]].map(([k, l]) => (
+          <button key={k} className="chip" aria-pressed={filter === k} role="tab" onClick={() => setFilter(k)}>{l}</button>
+        ))}
+      </div>
+      <div className={isDesktop && detailMode(detailOpen, isDesktop) ? "stack" : "list-grid"} style={{ display: "grid", gap: "var(--s-4)" }}>
+        {filtered.map(m => (
+          <MatchCard key={m.id} match={m} onOpen={onSelect} active={isDesktop && m.id === selected.id} />
+        ))}
+      </div>
+    </div>
+  );
+
+  // Desktop: split list + detail. Mobile: list OR detail.
+  if (isDesktop) {
+    return (
+      <div className="split">
+        <div className="split-list">{List}</div>
+        <div><MatchDetail match={selected} embedded onTapSpot={onTapSpot} onTakeNext={onTakeNext} onPay={onPay} onOrganize={onOrganize} /></div>
+      </div>
+    );
+  }
+  if (detailOpen) {
+    return <MatchDetail match={selected} onTapSpot={onTapSpot} onTakeNext={onTakeNext} onBack={onBack} onPay={onPay} onOrganize={onOrganize} />;
+  }
+  return List;
+}
+function detailMode(open, desk) { return desk; }
+
+Object.assign(window, { useMediaQuery, AuthScreen, MatchDetail, PartidosView });
+
+</script>
+<script type="text/babel">
+/* eslint-disable */
+// screen-pay-org-profile.jsx — Pago, Organizar, Perfil. Exporta a window.
+const { useState: useStateP, useRef: useRefP } = React;
+
+/* =========================================================
+   PAGO — transferencia + subir comprobante
+   ========================================================= */
+function PagoScreen({ match, spot, onBack, onSent }) {
+  const [file, setFile] = useStateP(null);
+  const [sent, setSent] = useStateP(false);
+  const inputRef = useRefP(null);
+
+  const onFile = (e) => {
+    const f = e.target.files && e.target.files[0];
+    if (!f) return;
+    const url = URL.createObjectURL(f);
+    setFile({ name: f.name, url, isImg: f.type.startsWith("image/") });
+  };
+
+  if (sent) {
+    return (
+      <div className="section" style={{ maxWidth: 560, margin: "0 auto", alignItems: "center", textAlign: "center", paddingTop: "var(--s-7)" }}>
+        <div style={{ width: 92, height: 92, borderRadius: "50%", background: "var(--st-pend-bg)", color: "var(--st-pend-fg)", display: "grid", placeItems: "center", marginBottom: 4 }}>
+          <Icon name="clock" size={46} stroke={2.2} />
+        </div>
+        <h1 className="h-xl">¡Comprobante enviado!</h1>
+        <p className="muted" style={{ maxWidth: 380 }}>
+          Tu cupo <b className="num">{String(spot.n).padStart(2, "0")}</b> queda <b>pendiente</b> hasta que {playerById(match.organizador).name.split(" ")[0]} confirme.
+          Te avisamos apenas pase a <b style={{ color: "var(--verde-700)" }}>pagado</b>.
+        </p>
+        <div className="card card-pad" style={{ width: "100%", textAlign: "left" }}>
+          <div className="row" style={{ justifyContent: "space-between" }}>
+            <span className="row" style={{ gap: 10, fontWeight: 700 }}>
+              <span className="legend-swatch s-pendiente" style={{ width: 34, height: 34 }}><Icon name="clock" size={17} /></span>
+              Cupo {String(spot.n).padStart(2, "0")} · Pendiente
+            </span>
+            <span className="num" style={{ fontWeight: 800 }}>{CLP(match.precio)}</span>
+          </div>
+        </div>
+        <button className="btn btn-primary btn-lg btn-block" style={{ maxWidth: 360 }} onClick={onBack}>Volver al partido</button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="section" style={{ maxWidth: 620, margin: "0 auto" }}>
+      <button className="btn btn-quiet" style={{ alignSelf: "flex-start", paddingLeft: 8 }} onClick={onBack}><Icon name="chevL" size={18} /> Volver</button>
+
+      <div>
+        <div className="eyebrow">Reserva tu cupo</div>
+        <h1 className="h-xl">Paga por transferencia</h1>
+        <p className="muted" style={{ marginTop: 4 }}>Transfiere el monto exacto y sube tu comprobante. Tu cupo queda guardado mientras tanto.</p>
+      </div>
+
+      {/* resumen + monto */}
+      <div className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        <div className="row" style={{ justifyContent: "space-between", gap: 12 }}>
+          <div className="row" style={{ gap: 12 }}>
+            <span className="legend-swatch s-pendiente" style={{ width: 44, height: 44, fontSize: 16 }}>
+              <span className="num" style={{ fontWeight: 800 }}>{String(spot.n).padStart(2, "0")}</span>
+            </span>
+            <div>
+              <div style={{ fontWeight: 750 }}>{match.titulo}</div>
+              <div className="muted-2" style={{ fontSize: 13 }}>{match.dia} · {match.hora} · {match.comuna}</div>
+            </div>
+          </div>
+        </div>
+        <hr className="divider" />
+        <div className="row" style={{ justifyContent: "space-between", alignItems: "baseline" }}>
+          <span className="lbl">Monto a transferir</span>
+          <span className="num" style={{ fontSize: "var(--fs-2xl)", fontWeight: 800, color: "var(--verde-700)", letterSpacing: "-.02em" }}>{CLP(match.precio)}</span>
+        </div>
+      </div>
+
+      {/* datos transferencia */}
+      <div className="section" style={{ gap: 10 }}>
+        <h2 className="h-sm"><Icon name="bank" size={18} style={{ verticalAlign: "-3px", color: "var(--verde-600)" }} /> Datos para transferir</h2>
+        <CopyRow k="Nombre" v={TRANSFER.nombre} />
+        <div className="grid-2" style={{ gap: 10 }}>
+          <CopyRow k="RUT" v={TRANSFER.rut} mono />
+          <CopyRow k="Cuenta" v={TRANSFER.cuenta} mono />
+        </div>
+        <CopyRow k="Banco" v={TRANSFER.banco + " · " + TRANSFER.tipo} />
+        <CopyRow k="Correo" v={TRANSFER.email} />
+      </div>
+
+      {/* subir comprobante */}
+      <div className="section" style={{ gap: 10 }}>
+        <h2 className="h-sm"><Icon name="receipt" size={18} style={{ verticalAlign: "-3px", color: "var(--verde-600)" }} /> Sube tu comprobante</h2>
+        <input ref={inputRef} type="file" accept="image/*,application/pdf" onChange={onFile} style={{ display: "none" }} />
+        <div className={"dropzone" + (file ? " has-file" : "")} onClick={() => inputRef.current && inputRef.current.click()} role="button" tabIndex={0}
+          onKeyDown={(e) => { if (e.key === "Enter") inputRef.current.click(); }}>
+          {file ? (
+            <>
+              {file.isImg
+                ? <div className="thumb"><img src={file.url} alt="Comprobante" style={{ width: "100%", display: "block" }} /></div>
+                : <div className="legend-swatch s-pagado" style={{ width: 48, height: 48 }}><Icon name="receipt" size={24} /></div>}
+              <div className="row" style={{ gap: 8, color: "var(--verde-700)", fontWeight: 750 }}><Icon name="checkCircle" size={18} /> {file.name}</div>
+              <span className="muted-2" style={{ fontSize: 13 }}>Toca para cambiar</span>
+            </>
+          ) : (
+            <>
+              <div className="legend-swatch" style={{ width: 52, height: 52, borderStyle: "dashed" }}><Icon name="camera" size={26} /></div>
+              <div style={{ fontWeight: 750 }}>Toca para subir foto o PDF</div>
+              <span className="muted-2" style={{ fontSize: 13 }}>Pantallazo de la transferencia o el comprobante del banco</span>
+            </>
+          )}
+        </div>
+      </div>
+
+      <Banner kind="warn" icon="alert">
+        Transfiere el <b>monto exacto</b> y deja tu apodo en el mensaje si puedes. Así el organizador te encuentra al tiro.
+      </Banner>
+
+      <button className="btn btn-accent btn-lg btn-block" disabled={!file} onClick={() => { setSent(true); onSent && onSent(match, spot); }}>
+        <Icon name="check" size={20} /> Ya transferí — enviar comprobante
+      </button>
+    </div>
+  );
+}
+
+/* =========================================================
+   ORGANIZAR — caja + confirmar pagos
+   ========================================================= */
+function OrganizarScreen({ match, onConfirm, onRelease, onTapSpot }) {
+  const [tab, setTab] = useStateP("confirmar");
+  if (!match) return null;
+  const pagados = match.spots.filter(s => s.state === "pagado");
+  const pend = match.spots.filter(s => s.state === "pendiente");
+  const recaudado = pagados.length * match.precio;
+  const porCobrar = pend.length * match.precio;
+  const esperado = match.total * match.precio;
+
+  return (
+    <div className="section">
+      <div className="page-head" style={{ marginBottom: 0 }}>
+        <div>
+          <div className="eyebrow"><Icon name="shirt" size={13} style={{ verticalAlign: "-2px" }} /> Modo organizador</div>
+          <h1 className="h-xl">{match.titulo}</h1>
+          <p className="muted" style={{ margin: "2px 0 0" }}>{match.dia} · {match.hora} · {match.cancha}</p>
+        </div>
+        <button className="btn btn-accent only-desktop" onClick={() => alert("Compartiría link por WhatsApp")}><Icon name="share" size={18} /> Compartir link</button>
+      </div>
+
+      {/* caja */}
+      <div className="grid-3" style={{ gap: "var(--s-3)" }}>
+        <div className="stat" style={{ background: "var(--verde-600)", borderColor: "var(--verde-700)", color: "#fff" }}>
+          <div className="v num">{CLP(recaudado)}</div>
+          <div className="k" style={{ color: "rgba(255,255,255,.85)" }}>En caja · {pagados.length} pagados</div>
+        </div>
+        <div className="stat">
+          <div className="v num" style={{ color: "var(--st-pend-fg)" }}>{CLP(porCobrar)}</div>
+          <div className="k">Por cobrar · {pend.length} pend.</div>
+        </div>
+        <div className="stat">
+          <div className="v num">{CLP(esperado)}</div>
+          <div className="k">Total esperado</div>
+        </div>
+      </div>
+
+      <div className="card card-pad"><ProgressBar spots={match.spots} total={match.total} /></div>
+
+      {/* tabs */}
+      <div className="chip-row" role="tablist">
+        {[["confirmar", "Por confirmar (" + pend.length + ")"], ["cupos", "Todos los cupos"]].map(([k, l]) => (
+          <button key={k} className="chip" aria-pressed={tab === k} role="tab" onClick={() => setTab(k)}>{l}</button>
+        ))}
+      </div>
+
+      {tab === "confirmar" ? (
+        <div className="section" style={{ gap: 10 }}>
+          {pend.length === 0 && <Banner kind="ok" icon="checkCircle"><b>¡Al día!</b> No hay pagos pendientes por confirmar.</Banner>}
+          {pend.map(s => {
+            const p = playerById(s.pid);
+            return (
+              <div className="pay-row" key={s.n}>
+                <Avatar player={p} size={42} />
+                <div className="grow">
+                  <div className="pay-name">
+                    <span className="num" style={{ color: "var(--tinta-50)" }}>#{String(s.n).padStart(2, "0")}</span>
+                    <span className="pay-name-text">{p ? p.name : "—"}</span>
+                    <RepBadge score={p ? p.rep : 50} small showScore={false} />
+                  </div>
+                  <div className="pay-meta">Reservó {s.when || "recién"} · {CLP(match.precio)}</div>
+                </div>
+                <div className="pay-actions">
+                  <button className="btn btn-ghost" style={{ minHeight: 42, padding: "0 12px" }} onClick={() => onRelease(match.id, s.n)} aria-label="Liberar cupo">
+                    <Icon name="undo" size={17} /><span className="only-desktop">Liberar</span>
+                  </button>
+                  <button className="btn btn-primary" style={{ minHeight: 42, padding: "0 14px" }} onClick={() => onConfirm(match.id, s.n)}>
+                    <Icon name="check" size={18} /> Confirmar
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          <hr className="divider" />
+          <div className="muted-2" style={{ fontSize: 13, fontWeight: 650, textTransform: "uppercase", letterSpacing: ".03em" }}>Ya pagados ({pagados.length})</div>
+          {pagados.map(s => {
+            const p = playerById(s.pid);
+            return (
+              <div className="pay-row is-paid" key={s.n}>
+                <Avatar player={p} size={36} />
+                <div className="grow">
+                  <div className="pay-name" style={{ fontSize: "var(--fs-sm)" }}><span className="num" style={{ color: "var(--tinta-50)" }}>#{String(s.n).padStart(2, "0")}</span> <span className="pay-name-text">{p ? p.name : "—"}</span></div>
+                </div>
+                <span className="tag tag-verde"><Icon name="check" size={13} /> Pagado</span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="card card-pad grid-wrap">
+          <SpotGrid spots={match.spots} onTapSpot={(spot) => onTapSpot(match, spot)} />
+          <hr className="divider" />
+          <StateLegend />
+          <p className="muted-2" style={{ fontSize: 13, margin: 0 }}>Toca un cupo pendiente para confirmar o liberar.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* =========================================================
+   PERFIL — reputación + ranking / deudores
+   ========================================================= */
+function PerfilScreen({ onLogout }) {
+  const [tab, setTab] = useStateP("ranking");
+  const me = ME;
+  const t = repTier(me.rep);
+  const ranking = [...PLAYERS].sort((a, b) => b.rep - a.rep);
+  const deudores = PLAYERS.filter(p => p.debe > 0).sort((a, b) => b.debe - a.debe);
+  const totalDeuda = deudores.reduce((s, p) => s + p.debe, 0);
+
+  return (
+    <div className="section">
+      {/* tarjeta perfil */}
+      <div className="card" style={{ overflow: "hidden" }}>
+        <div style={{ padding: "var(--s-5)", color: "#fff", position: "relative", background: "linear-gradient(155deg, var(--verde-600), var(--verde-700))" }}>
+          <div aria-hidden="true" style={{ position: "absolute", inset: 0, opacity: .12, background: "repeating-linear-gradient(125deg,#fff 0 2px,transparent 2px 52px)" }} />
+          <div className="row" style={{ gap: 16, position: "relative", flexWrap: "wrap" }}>
+            <Avatar player={me} size={68} ring />
+            <div style={{ flex: 1, minWidth: 160 }}>
+              <h1 style={{ fontSize: "var(--fs-xl)", fontWeight: 800, margin: 0 }}>Nico Soto</h1>
+              <div style={{ color: "rgba(255,255,255,.85)", fontWeight: 600 }}>@nico · Ñuñoa</div>
+            </div>
+            <span className="rep" style={{ background: "rgba(255,255,255,.16)", color: "#fff" }}>
+              <span className="rep-dot" style={{ background: t.color }}><Icon name={t.icon} size={13} /></span>
+              {t.label} · <span className="num">{me.rep}</span>
+            </span>
+          </div>
+        </div>
+        <div className="grid-3" style={{ gap: 0 }}>
+          {[[me.jugados, "Partidos"], [me.pagados, "Pagados al día"], ["7", "Racha 🔥"]].map(([v, k], i) => (
+            <div key={k} style={{ padding: "var(--s-4)", textAlign: "center", borderLeft: i ? "1px solid var(--linea)" : 0 }}>
+              <div className="num" style={{ fontSize: "var(--fs-xl)", fontWeight: 800 }}>{v}</div>
+              <div className="muted-2" style={{ fontSize: 12, fontWeight: 600 }}>{k}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <Banner kind="ok" icon="shield">
+        <b>Tu reputación de pago es {me.rep}/100.</b> Mientras más pagas a tiempo, más sube — y los organizadores te dan cupo sin dudarlo.
+      </Banner>
+
+      {/* tabs */}
+      <div className="chip-row" role="tablist">
+        {[["ranking", "Ranking del barrio"], ["deudores", "Deudores (" + deudores.length + ")"]].map(([k, l]) => (
+          <button key={k} className="chip" aria-pressed={tab === k} role="tab" onClick={() => setTab(k)}>{l}</button>
+        ))}
+      </div>
+
+      {tab === "ranking" ? (
+        <div className="card" style={{ overflow: "hidden" }}>
+          <table className="rank">
+            <thead><tr><th className="pos">#</th><th>Jugador</th><th className="num" style={{ textAlign: "right" }}>Pagados</th><th className="num rep-col" style={{ textAlign: "right" }}>Reputación</th></tr></thead>
+            <tbody>
+              {ranking.map((p, i) => (
+                <tr key={p.id} className={p.me ? "me" : ""}>
+                  <td className="pos num">{i + 1}</td>
+                  <td><div className="who"><Avatar player={p} size={32} /><span className="who-name">{p.me ? "Tú" : p.name}</span>{i === 0 && <span className="tag tag-naranjo"><Icon name="trophy" size={12} /> Líder</span>}</div></td>
+                  <td className="num" style={{ textAlign: "right" }}>{p.pagados}/{p.jugados}</td>
+                  <td className="rep-col" style={{ textAlign: "right" }}>
+                    <span className="rep-score" title={repTier(p.rep).label + " · " + p.rep + "/100"}>
+                      <span className="rep-dot" style={{ background: repTier(p.rep).color, width: 18, height: 18 }}><Icon name={repTier(p.rep).icon} size={11} stroke={2.4} /></span>
+                      <span className="num">{p.rep}</span>
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="section" style={{ gap: 10 }}>
+          <Banner kind="warn" icon="cash">Se le debe <b className="num">{CLP(totalDeuda)}</b> a la caja del barrio entre {deudores.length} jugadores.</Banner>
+          {deudores.map(p => (
+            <div className="pay-row" key={p.id}>
+              <Avatar player={p} size={42} />
+              <div className="grow">
+                <div className="pay-name"><span className="pay-name-text">{p.name}</span> <RepBadge score={p.rep} small showScore={false} /></div>
+                <div className="pay-meta">{p.jugados - p.pagados} cupos sin pagar</div>
+              </div>
+              <div className="row" style={{ gap: 10 }}>
+                <span className="num" style={{ fontWeight: 800, color: "var(--danger)" }}>{CLP(p.debe)}</span>
+                <button className="btn btn-soft" style={{ minHeight: 42, padding: "0 12px" }} onClick={() => alert("Mandaría recordatorio por WhatsApp")}>
+                  <Icon name="whatsapp" size={17} /><span className="only-desktop">Recordar</span>
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <button className="btn btn-quiet" style={{ alignSelf: "center", marginTop: 8 }} onClick={onLogout}><Icon name="logout" size={17} /> Cerrar sesión</button>
+    </div>
+  );
+}
+
+Object.assign(window, { PagoScreen, OrganizarScreen, PerfilScreen });
+
+</script>
+<script type="text/babel">
+/* eslint-disable */
+// app.jsx — shell responsive, routing, navegación y Tweaks.
+const { useState: useS, useEffect: useE, useMemo } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "marca": ["#1b7a3d", "#156234", "#eef9f2", "#dcf3e4", "#b7e3c6"],
+  "acento": ["#f2641a", "#e2570f"],
+  "grid": "rounded",
+  "density": "regular",
+  "card": "solid",
+  "nav": "labels",
+  "font": "Figtree",
+  "type": "normal"
+}/*EDITMODE-END*/;
+
+const MARCA_OPTS = [
+  ["#1b7a3d", "#156234", "#eef9f2", "#dcf3e4", "#b7e3c6"], // cancha
+  ["#15994a", "#0e7d3a", "#edfaf1", "#d3f3df", "#a8e6bf"], // pasto vivo
+  ["#1668c4", "#0f4f9c", "#eef4fc", "#d6e6f8", "#aecdf0"], // océano
+  ["#7a3fc0", "#5f2f9a", "#f4eefb", "#e7d8f6", "#cfb2ec"], // uva
+];
+const ACENTO_OPTS = [
+  ["#f2641a", "#e2570f"], // naranjo
+  ["#e8412e", "#cf2f1f"], // teja
+  ["#1898a8", "#0f7c8a"], // turquesa
+  ["#d98a00", "#b87200"], // mostaza
+];
+
+function applyTheme(root, marca, acento) {
+  if (Array.isArray(marca)) {
+    root.style.setProperty("--verde-600", marca[0]);
+    root.style.setProperty("--verde-700", marca[1]);
+    root.style.setProperty("--verde-50", marca[2]);
+    root.style.setProperty("--verde-100", marca[3]);
+    root.style.setProperty("--verde-200", marca[4]);
+    // verde-500 = marca[0] aclarada ~18%, para que el gradiente de btn-primary se vea
+    root.style.setProperty("--verde-500", "color-mix(in srgb, " + marca[0] + " 82%, #fff)");
+    root.style.setProperty("--primary", marca[0]);
+    root.style.setProperty("--st-pago-bg", marca[0]);
+    root.style.setProperty("--st-pago-bd", marca[1]);
+  }
+  if (Array.isArray(acento)) {
+    root.style.setProperty("--naranjo-500", acento[0]);
+    root.style.setProperty("--naranjo-600", acento[1]);
+    // naranjo-400 = acento[0] aclarado ~18% para gradiente de btn-accent
+    root.style.setProperty("--naranjo-400", "color-mix(in srgb, " + acento[0] + " 82%, #fff)");
+    root.style.setProperty("--accent", acento[0]);
+  }
+}
+const FONTS = { "Figtree": "'Figtree'", "Hanken Grotesk": "'Hanken Grotesk'", "Sistema": "system-ui" };
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const rootRef = React.useRef(null);
+
+  const [authed, setAuthed] = useS(false);
+  const [nav, setNav] = useS("partidos");
+  const [selectedId, setSelectedId] = useS(MATCHES[0].id);
+  const [detailOpen, setDetailOpen] = useS(false);
+  const [matches, setMatches] = useS(() => MATCHES.map(m => ({ ...m, spots: m.spots.map(s => ({ ...s })) })));
+  const [pago, setPago] = useS(null);          // {matchId, spotN}
+  const [organizeId, setOrganizeId] = useS(MATCHES.find(m => m.miOrg).id);
+  const [take, setTake] = useS(null);           // {matchId, spotN}
+  const [inspect, setInspect] = useS(null);     // {matchId, spotN, org}
+
+  // aplica tweaks al root
+  useE(() => {
+    const r = rootRef.current; if (!r) return;
+    applyTheme(r, t.marca, t.acento);
+    r.style.setProperty("--font-ui", FONTS[t.font] || FONTS.Figtree);
+    r.setAttribute("data-grid", t.grid);
+    r.setAttribute("data-density", t.density);
+    r.setAttribute("data-card", t.card);
+    r.setAttribute("data-nav", t.nav);
+    r.setAttribute("data-type", t.type);
+  }, [t]);
+
+  const getMatch = (id) => matches.find(m => m.id === id);
+  const updateSpot = (matchId, spotN, patch) => {
+    setMatches(ms => ms.map(m => m.id !== matchId ? m : ({
+      ...m, spots: m.spots.map(s => s.n !== spotN ? s : ({ ...s, ...patch }))
+    })));
+  };
+
+  const goDetail = (m) => { setSelectedId(m.id); setDetailOpen(true); window.scrollTo(0, 0); };
+  const backToList = () => setDetailOpen(false);
+
+  // tomar próximo cupo libre
+  const takeNext = (m) => {
+    const spot = m.spots.find(s => s.state === "libre" || s.state === "liberado");
+    if (!spot) return;
+    setTake({ matchId: m.id, spotN: spot.n });
+  };
+  const handleTapSpot = (m, spot) => {
+    const player = spot.pid ? playerById(spot.pid) : null;
+    if (spot.state === "libre" || spot.state === "liberado") { setTake({ matchId: m.id, spotN: spot.n }); return; }
+    if (player && player.me && spot.state === "pendiente") { setPago({ matchId: m.id, spotN: spot.n }); return; }
+    setInspect({ matchId: m.id, spotN: spot.n, org: false });
+  };
+  const confirmTake = () => {
+    const { matchId, spotN } = take;
+    updateSpot(matchId, spotN, { state: "pendiente", pid: ME.id, when: "recién" });
+    setSelectedId(matchId);
+    setPago({ matchId, spotN });
+    setTake(null);
+  };
+
+  // organizador
+  const orgConfirm = (matchId, spotN) => updateSpot(matchId, spotN, { state: "pagado", when: "hoy" });
+  const orgRelease = (matchId, spotN) => updateSpot(matchId, spotN, { state: "liberado", pid: null, when: "se liberó recién" });
+  const handleOrgTap = (m, spot) => {
+    if (spot.state === "pendiente") setInspect({ matchId: m.id, spotN: spot.n, org: true });
+    else if (spot.state === "pagado") setInspect({ matchId: m.id, spotN: spot.n, org: true });
+  };
+  const openOrganize = (m) => { setOrganizeId(m.id); setNav("organizar"); window.scrollTo(0, 0); };
+
+  if (!authed) {
+    return (
+      <div ref={rootRef} data-app="">
+        <AuthScreen onEnter={() => setAuthed(true)} />
+        <TweaksUI t={t} setTweak={setTweak} />
+      </div>
+    );
+  }
+
+  const NAV = [
+    { key: "partidos", label: "Partidos", icon: "ball" },
+    { key: "organizar", label: "Organizar", icon: "shirt" },
+    { key: "perfil", label: "Perfil", icon: "user" },
+  ];
+  const titleFor = { partidos: "Partidos", organizar: "Organizar", perfil: "Mi perfil" };
+
+  let main;
+  if (pago) {
+    const m = getMatch(pago.matchId); const spot = m.spots.find(s => s.n === pago.spotN);
+    main = <PagoScreen match={m} spot={spot} onBack={() => setPago(null)} />;
+  } else if (nav === "partidos") {
+    main = <PartidosView matches={matches} selectedId={selectedId} detailOpen={detailOpen}
+      onSelect={goDetail} onBack={backToList}
+      onTapSpot={handleTapSpot} onTakeNext={takeNext}
+      onPay={(m, s) => setPago({ matchId: m.id, spotN: s.n })} onOrganize={openOrganize} />;
+  } else if (nav === "organizar") {
+    main = <OrganizarScreen match={getMatch(organizeId)} onConfirm={orgConfirm} onRelease={orgRelease}
+      onTapSpot={handleOrgTap} />;
+  } else {
+    main = <PerfilScreen onLogout={() => { setAuthed(false); setNav("partidos"); setDetailOpen(false); }} />;
+  }
+
+  const navClick = (k) => { setPago(null); setDetailOpen(false); setNav(k); window.scrollTo(0, 0); };
+
+  return (
+    <div ref={rootRef} data-app="" className="app">
+      <div className="shell">
+        {/* Sidebar desktop */}
+        <aside className="sidebar">
+          <div className="brand">
+            <div className="brand-mark"><Icon name="ball" size={22} /></div>
+            <span className="brand-name">De<b>Barrio</b></span>
+          </div>
+          {NAV.map(n => (
+            <button key={n.key} className="side-link" aria-current={nav === n.key && !pago ? "page" : undefined} onClick={() => navClick(n.key)}>
+              <Icon name={n.icon} size={21} /> {n.label}
+            </button>
+          ))}
+          <div className="side-foot">
+            <hr className="divider" />
+            <button className="side-link" onClick={() => alert("Armar nuevo partido")}><Icon name="plus" size={21} /> Armar partido</button>
+            <div className="row" style={{ gap: 10, padding: "10px 14px" }}>
+              <Avatar player={ME} size={36} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 750, fontSize: 14 }}>Nico Soto</div>
+                <RepBadge score={ME.rep} small showScore />
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* Contenido */}
+        <div className="content">
+          {/* Topbar móvil */}
+          <header className="topbar mobile-only only-mobile">
+            <div className="brand">
+              <div className="brand-mark" style={{ width: 32, height: 32, borderRadius: 9 }}><Icon name="ball" size={18} /></div>
+              <span className="brand-name" style={{ fontSize: 17 }}>De<b>Barrio</b></span>
+            </div>
+            <div className="topbar-spacer" />
+            <button className="icon-btn" aria-label="Notificaciones"><Icon name="bell" size={20} /></button>
+          </header>
+
+          {/* Deskbar título */}
+          <div className="deskbar">
+            <h2 className="h-lg" style={{ margin: 0 }}>{pago ? "Pagar cupo" : titleFor[nav]}</h2>
+          </div>
+
+          <main className="content-pad with-bottomnav">
+            <div
+              className="content-enter"
+              key={nav + "|" + (pago ? ("p" + pago.matchId + "-" + pago.spotN) : "") + "|" + (detailOpen ? "d" : "l") + "|" + selectedId}
+            >
+              {main}
+            </div>
+          </main>
+        </div>
+      </div>
+
+      {/* Bottom nav móvil */}
+      {!pago && (
+        <nav className="bottomnav only-mobile" aria-label="Navegación principal">
+          {NAV.map(n => (
+            <button key={n.key} className="nav-item" aria-current={nav === n.key ? "page" : undefined} onClick={() => navClick(n.key)}>
+              <span className="nav-dot"><Icon name={n.icon} size={22} /></span>
+              <span className="lbl">{n.label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
+
+      {/* Sheet: tomar cupo */}
+      <Sheet open={!!take} onClose={() => setTake(null)} labelledby="take-t">
+        {take && (() => {
+          const m = getMatch(take.matchId);
+          return (
+            <div className="section">
+              <div className="row" style={{ gap: 14 }}>
+                <span className="legend-swatch" style={{ width: 56, height: 56, borderColor: "var(--verde-500)", color: "var(--verde-700)" }}>
+                  <span className="num" style={{ fontSize: 22, fontWeight: 800 }}>{String(take.spotN).padStart(2, "0")}</span>
+                </span>
+                <div>
+                  <h2 id="take-t" className="h-lg" style={{ margin: 0 }}>Tomar el cupo {String(take.spotN).padStart(2, "0")}</h2>
+                  <p className="muted" style={{ margin: "2px 0 0" }}>{m.titulo} · {m.dia} {m.hora}</p>
+                </div>
+              </div>
+              <Banner kind="info" icon="clock">Reservamos este cupo a tu nombre. Quedará <b>pendiente</b> hasta que pagues por transferencia y el organizador confirme.</Banner>
+              <div className="row" style={{ justifyContent: "space-between", padding: "0 4px" }}>
+                <span className="lbl">Total a pagar</span>
+                <span className="num" style={{ fontWeight: 800, fontSize: "var(--fs-xl)", color: "var(--verde-700)" }}>{CLP(m.precio)}</span>
+              </div>
+              <button className="btn btn-primary btn-lg btn-block" onClick={confirmTake}><Icon name="check" size={20} /> Reservar y pagar</button>
+              <button className="btn btn-quiet btn-block" onClick={() => setTake(null)}>Mejor no</button>
+            </div>
+          );
+        })()}
+      </Sheet>
+
+      {/* Sheet: inspeccionar cupo */}
+      <Sheet open={!!inspect} onClose={() => setInspect(null)} labelledby="insp-t">
+        {inspect && (() => {
+          const m = getMatch(inspect.matchId); const s = m.spots.find(x => x.n === inspect.spotN);
+          const p = s.pid ? playerById(s.pid) : null; const meta = STATE_META[s.state];
+          return (
+            <div className="section">
+              <div className="row" style={{ gap: 14 }}>
+                {p ? <Avatar player={p} size={56} /> : <span className={"legend-swatch s-" + s.state} style={{ width: 56, height: 56 }}><Icon name={meta.icon} size={26} /></span>}
+                <div style={{ flex: 1 }}>
+                  <h2 id="insp-t" className="h-lg" style={{ margin: 0 }}>Cupo {String(s.n).padStart(2, "0")} · {p ? p.name : meta.label}</h2>
+                  <div className="row" style={{ gap: 8, marginTop: 4 }}>
+                    <span className={"tag tag-" + (s.state === "pagado" ? "verde" : s.state === "pendiente" ? "warn" : "info")}><Icon name={meta.icon} size={12} /> {meta.label}</span>
+                    {s.when && <span className="muted-2" style={{ fontSize: 13 }}>{s.when}</span>}
+                  </div>
+                </div>
+              </div>
+              {p && <div className="card card-pad row" style={{ justifyContent: "space-between" }}><span className="muted">Reputación de pago</span><RepBadge score={p.rep} small /></div>}
+              {inspect.org ? (
+                s.state === "pendiente" ? (
+                  <>
+                    <button className="btn btn-primary btn-lg btn-block" onClick={() => { orgConfirm(m.id, s.n); setInspect(null); }}><Icon name="check" size={20} /> Confirmar pago</button>
+                    <button className="btn btn-ghost btn-block" onClick={() => { orgRelease(m.id, s.n); setInspect(null); }}><Icon name="undo" size={18} /> Liberar cupo</button>
+                  </>
+                ) : (
+                  <button className="btn btn-ghost btn-block" onClick={() => { orgRelease(m.id, s.n); setInspect(null); }}><Icon name="undo" size={18} /> Liberar cupo</button>
+                )
+              ) : (
+                <button className="btn btn-quiet btn-block" onClick={() => setInspect(null)}>Cerrar</button>
+              )}
+            </div>
+          );
+        })()}
+      </Sheet>
+
+      <TweaksUI t={t} setTweak={setTweak} />
+    </div>
+  );
+}
+
+/* ---------- Panel de Tweaks ---------- */
+function TweaksUI({ t, setTweak }) {
+  return (
+    <TweaksPanel title="Tweaks">
+      <TweakSection label="Marca y tema" />
+      <TweakColor label="Color de marca" value={t.marca} options={MARCA_OPTS} onChange={v => setTweak("marca", v)} />
+      <TweakColor label="Acento (organizador)" value={t.acento} options={ACENTO_OPTS} onChange={v => setTweak("acento", v)} />
+
+      <TweakSection label="Lista de cupos" />
+      <TweakRadio label="Forma de ficha" value={t.grid} options={["rounded", "circle", "ticket"]} onChange={v => setTweak("grid", v)} />
+      <TweakRadio label="Densidad" value={t.density} options={["compact", "regular", "comfy"]} onChange={v => setTweak("density", v)} />
+
+      <TweakSection label="Card de partido" />
+      <TweakRadio label="Estilo de card" value={t.card} options={["solid", "outline", "photo"]} onChange={v => setTweak("card", v)} />
+
+      <TweakSection label="Tipografía" />
+      <TweakSelect label="Fuente" value={t.font} options={["Figtree", "Hanken Grotesk", "Sistema"]} onChange={v => setTweak("font", v)} />
+      <TweakRadio label="Escala" value={t.type} options={["chico", "normal", "grande"]} onChange={v => setTweak("type", v)} />
+
+      <TweakSection label="Navegación" />
+      <TweakRadio label="Estilo de nav" value={t.nav} options={["labels", "icons", "pill"]} onChange={v => setTweak("nav", v)} />
+    </TweaksPanel>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+
+</script>
 
 
 </body></html>
