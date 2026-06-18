@@ -1,0 +1,334 @@
+/* eslint-disable */
+// screen-auth-list.jsx — Auth, lista de partidos, detalle con grilla. Exporta a window.
+const { useState: useStateA, useEffect: useEffectA } = React;
+
+/* =========================================================
+   HERO: "Cupos llenándose" — animación de la página principal
+   Muestra el mecanismo del producto: cupos pasan de libre →
+   pendiente (amarillo punteado) → pagado (verde con ✓), termina
+   en "¡Pichanga armada!" y vuelve a empezar.
+   Respeta prefers-reduced-motion.
+   ========================================================= */
+function PichangaFillHero({ compact }) {
+  const COUNT = compact ? 8 : 12;
+  const [step, setStep] = useStateA(0);
+  const [phase, setPhase] = useStateA("filling");
+
+  useEffectA(() => {
+    const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) { setStep(COUNT); setPhase("armada"); return; }
+
+    let cancelled = false;
+    const timers = [];
+    const tick = compact ? 300 : 360;     // ms entre tile y tile
+    const armadaHold = 1900;              // ms con la pichanga armada
+    const blank = 700;                    // ms de descanso antes de loop
+
+    function cycle() {
+      if (cancelled) return;
+      setStep(0); setPhase("filling");
+      for (let i = 1; i <= COUNT; i++) {
+        timers.push(setTimeout(() => { if (!cancelled) setStep(i); }, i * tick));
+      }
+      timers.push(setTimeout(() => { if (!cancelled) setPhase("armada"); }, COUNT * tick + 60));
+      timers.push(setTimeout(cycle, COUNT * tick + armadaHold + blank));
+    }
+    cycle();
+    return () => { cancelled = true; timers.forEach(clearTimeout); };
+  }, [COUNT, compact]);
+
+  const filled = phase === "armada" ? COUNT : step;
+
+  return (
+    <div className={"hero-fill" + (compact ? " hf-compact" : "")} aria-hidden="true">
+      <div className={"hero-fill-grid" + (phase === "armada" ? " is-armada" : "")}>
+        {Array.from({ length: COUNT }).map((_, i) => {
+          const state = i < step ? "pagado" : (i === step && phase === "filling") ? "pendiente" : "libre";
+          return (
+            <div className={"hf-tile is-" + state} key={i} style={{ "--i": i }}>
+              <span className="hf-num num">{String(i + 1).padStart(2, "0")}</span>
+              <Icon name="check" size={compact ? 16 : 22} className="hf-check" stroke={2.8} />
+            </div>
+          );
+        })}
+      </div>
+      <div className="hero-fill-foot">
+        <div className="hero-fill-track" role="presentation">
+          <span style={{ width: (filled / COUNT * 100) + "%" }} />
+        </div>
+        <div className={"hero-fill-cap" + (phase === "armada" ? " is-armada" : "")}>
+          {phase === "armada"
+            ? (<><Icon name="checkCircle" size={15} stroke={2.4} /> ¡Partido armado!</>)
+            : (<><span className="num"><b>{step}</b>/{COUNT}</span> pagados</>)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function useMediaQuery(q) {
+  const [m, setM] = useStateA(() => window.matchMedia(q).matches);
+  useEffectA(() => {
+    const mm = window.matchMedia(q);
+    const on = () => setM(mm.matches);
+    mm.addEventListener ? mm.addEventListener("change", on) : mm.addListener(on);
+    return () => mm.removeEventListener ? mm.removeEventListener("change", on) : mm.removeListener(on);
+  }, [q]);
+  return m;
+}
+
+/* =========================================================
+   AUTH — login / registro
+   ========================================================= */
+function AuthScreen({ onEnter }) {
+  const [mode, setMode] = useStateA("login");
+  const reg = mode === "registro";
+  return (
+    <div className="auth-stage">
+      <video className="auth-stage-bg" autoPlay muted loop playsInline preload="auto" aria-hidden="true"
+        onCanPlay={(e) => { const p = e.target.play(); if (p && p.catch) p.catch(() => {}); }}>
+        <source src={(window.__resources && window.__resources.authVideo) || "assets/auth-bg.mp4"} type="video/mp4" />
+      </video>
+      <div aria-hidden="true" className="auth-stage-tint" />
+
+      <header className="auth-topbar">
+        <div className="brand" style={{ padding: 0 }}>
+          <div className="brand-mark" style={{ background: "rgba(255,255,255,.16)" }}><Icon name="ball" size={22} /></div>
+          <span className="brand-name" style={{ color: "#fff" }}>De<b style={{ color: "var(--verde-400)" }}>Barrio</b></span>
+        </div>
+        <span className="auth-topbar-locale"><span className="auth-eyebrow-dot" /> Santiago · Chile</span>
+      </header>
+
+      <main className="auth-main">
+        <div className="auth-col">
+          <div className="auth-lede">
+            <span className="auth-eyebrow"><span className="auth-eyebrow-dot" /> Tu barrio · Santiago</span>
+            <h1 className="auth-title">El partido se arma solo cuando <em>todos pagan</em>.</h1>
+          </div>
+
+          <div className="auth-card">
+            <div className="auth-seg" role="tablist">
+              <button type="button" role="tab" className={"auth-seg-btn" + (!reg ? " is-on" : "")} onClick={() => setMode("login")}>Entrar</button>
+              <button type="button" role="tab" className={"auth-seg-btn" + (reg ? " is-on" : "")} onClick={() => setMode("registro")}>Crear cuenta</button>
+            </div>
+            <p className="auth-card-sub">
+              {reg ? "Te toma 30 segundos. Pura buena onda." : "Entra y mira en qué quedó el partido."}
+            </p>
+
+          <div className="section" style={{ gap: 14, marginTop: 18 }}>
+            {reg && (
+              <div className="field">
+                <label htmlFor="nm">Nombre y apodo</label>
+                <input id="nm" className="input" placeholder="Ej: Nico Soto (nico)" defaultValue="" />
+              </div>
+            )}
+            <div className="field">
+              <label htmlFor="ph">Número de celular</label>
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--tinta-50)", display: "flex" }}><Icon name="phone" size={18} /></span>
+                <input id="ph" className="input num" style={{ paddingLeft: 44 }} placeholder="+56 9 ____ ____" inputMode="tel" />
+              </div>
+            </div>
+            <div className="field">
+              <label htmlFor="pw">Contraseña</label>
+              <div style={{ position: "relative" }}>
+                <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--tinta-50)", display: "flex" }}><Icon name="lock" size={18} /></span>
+                <input id="pw" className="input" type="password" style={{ paddingLeft: 44 }} placeholder="••••••••" />
+              </div>
+              {!reg && <a className="hint" style={{ color: "var(--verde-700)", fontWeight: 650, textDecoration: "none", alignSelf: "flex-end" }} href="#">¿Se te olvidó?</a>}
+            </div>
+
+            <button className="btn btn-primary btn-lg btn-block" onClick={onEnter} style={{ marginTop: 4 }}>
+              {reg ? "Crear cuenta y entrar" : "Entrar"} <Icon name="arrowR" size={19} />
+            </button>
+
+            <div className="row" style={{ gap: 12, margin: "4px 0" }}>
+              <hr className="divider" style={{ flex: 1 }} />
+              <span className="muted-2" style={{ fontSize: 13 }}>o</span>
+              <hr className="divider" style={{ flex: 1 }} />
+            </div>
+            <button className="btn btn-ghost btn-lg btn-block" onClick={onEnter}>
+              <Icon name="whatsapp" size={19} /> Entrar con WhatsApp
+            </button>
+          </div>
+          </div>
+        </div>
+      </main>
+    </div>
+  );
+}
+
+/* =========================================================
+   DETALLE DE PARTIDO (panel reutilizable)
+   ========================================================= */
+function MatchDetail({ match, onTapSpot, onTakeNext, onBack, onPay, onOrganize, embedded }) {
+  const org = playerById(match.organizador);
+  const mine = match.spots.find(s => s.pid && playerById(s.pid) && playerById(s.pid).me);
+  const libres = match.spots.filter(s => s.state === "libre" || s.state === "liberado").length;
+  return (
+    <div className="section" style={{ gap: "var(--s-5)" }}>
+      {!embedded && (
+        <button className="btn btn-quiet only-mobile" style={{ alignSelf: "flex-start", paddingLeft: 8 }} onClick={onBack}>
+          <Icon name="chevL" size={18} /> Partidos
+        </button>
+      )}
+
+      {/* encabezado */}
+      <div className="card" style={{ overflow: "hidden" }}>
+        <div style={{
+          padding: "var(--s-5)", color: "#fff", position: "relative",
+          background: "linear-gradient(155deg, var(--verde-600), var(--verde-700))",
+        }}>
+          <div aria-hidden="true" style={{ position: "absolute", inset: 0, opacity: .12, background: "repeating-linear-gradient(125deg,#fff 0 2px,transparent 2px 52px)" }} />
+          <div style={{ position: "relative" }}>
+            <div className="row" style={{ justifyContent: "space-between", alignItems: "flex-start" }}>
+              <span className="tag" style={{ background: "rgba(255,255,255,.2)", color: "#fff" }}><Icon name="ball" size={12} /> {match.formato}</span>
+              {match.miOrg && <span className="tag tag-naranjo"><Icon name="shirt" size={12} /> Organizas tú</span>}
+            </div>
+            <h1 style={{ fontSize: "var(--fs-2xl)", fontWeight: 800, letterSpacing: "-.02em", margin: "12px 0 10px", lineHeight: 1.08 }}>{match.titulo}</h1>
+            <div className="row row-wrap" style={{ gap: "var(--s-4)", fontSize: "var(--fs-sm)", color: "rgba(255,255,255,.92)", fontWeight: 600 }}>
+              <span className="row" style={{ gap: 6 }}><Icon name="calendar" size={15} /> {match.dia}</span>
+              <span className="row" style={{ gap: 6 }}><Icon name="clock" size={15} /> {match.hora} · {match.dur}</span>
+              <span className="row" style={{ gap: 6 }}><Icon name="pin" size={15} /> {match.cancha}, {match.comuna}</span>
+            </div>
+          </div>
+        </div>
+        <div className="card-pad" style={{ display: "flex", flexDirection: "column", gap: "var(--s-4)" }}>
+          <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+            <div className="row" style={{ gap: 10 }}>
+              <Avatar player={org} size={42} />
+              <div>
+                <div style={{ fontSize: 12, color: "var(--tinta-50)", fontWeight: 600 }}>Organiza</div>
+                <div style={{ fontWeight: 750 }}>{org.name}</div>
+              </div>
+            </div>
+            <RepBadge score={org.rep} small />
+          </div>
+          <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 12, alignItems: "flex-end" }}>
+            <div>
+              <div style={{ fontSize: 12, color: "var(--tinta-50)", fontWeight: 600, textTransform: "uppercase", letterSpacing: ".03em" }}>Valor por cupo</div>
+              <div className="num" style={{ fontSize: "var(--fs-2xl)", fontWeight: 800, letterSpacing: "-.02em", color: "var(--verde-700)" }}>{CLP(match.precio)}</div>
+            </div>
+            <button className="btn btn-ghost" onClick={() => alert("Abriría WhatsApp del organizador")}>
+              <Icon name="whatsapp" size={18} /> Contactar
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* AVISO DEL ORGANIZADOR — notificación importante, bien visible y arriba */}
+      {match.nota && (
+        <div role="status" style={{
+          display: "flex", gap: "var(--s-3)", padding: "var(--s-4)", borderRadius: "var(--r-lg)",
+          background: "var(--naranjo-50)", border: "1.5px solid var(--naranjo-200)",
+          boxShadow: "var(--sh-sm)", alignItems: "flex-start",
+        }}>
+          <span style={{ width: 40, height: 40, borderRadius: 11, background: "var(--naranjo-500)", color: "#fff", display: "grid", placeItems: "center", flex: "0 0 auto", boxShadow: "0 4px 10px rgba(242,100,26,.35)" }}>
+            <Icon name="bell" size={21} stroke={2.3} />
+          </span>
+          <div style={{ minWidth: 0 }}>
+            <div className="eyebrow" style={{ marginBottom: 3 }}>Aviso del organizador</div>
+            <div style={{ fontWeight: 600, color: "var(--tinta)", lineHeight: 1.45, fontSize: "var(--fs-md)" }}>{match.nota}</div>
+          </div>
+        </div>
+      )}
+
+      {/* progreso */}
+      <div className="card card-pad">
+        <ProgressBar spots={match.spots} total={match.total} />
+      </div>
+
+      {/* grilla */}
+      <div className="card card-pad grid-wrap">
+        <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 10 }}>
+          <h2 className="h-lg"><Icon name="ball" size={20} style={{ verticalAlign: "-3px", color: "var(--verde-600)" }} /> Lista de cupos</h2>
+          <span className="tag tag-muted num">{libres} libres</span>
+        </div>
+        <SpotGrid spots={match.spots} onTapSpot={(spot) => onTapSpot(match, spot)} />
+        <hr className="divider" />
+        <StateLegend />
+      </div>
+
+
+      {/* acciones */}
+      <div className="card card-pad" style={{ display: "flex", flexDirection: "column", gap: 12, position: embedded ? "static" : "sticky", bottom: 0 }}>
+        {mine ? (
+          <>
+            <div className="row" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+              <span className="row" style={{ gap: 8, fontWeight: 700 }}>
+                <span className={"legend-swatch s-" + mine.state} style={{ width: 30, height: 30 }}><Icon name={STATE_META[mine.state].icon} size={15} /></span>
+                Tienes el cupo {String(mine.n).padStart(2, "0")} · {STATE_META[mine.state].label}
+              </span>
+            </div>
+            {mine.state === "pendiente"
+              ? <button className="btn btn-accent btn-lg btn-block" onClick={() => onPay(match, mine)}><Icon name="upload" size={19} /> Subir comprobante de pago</button>
+              : <button className="btn btn-soft btn-lg btn-block" disabled><Icon name="checkCircle" size={19} /> Cupo confirmado — ¡nos vemos en la cancha!</button>}
+          </>
+        ) : (
+          <button className="btn btn-primary btn-lg btn-block" onClick={() => onTakeNext(match)} disabled={libres === 0}>
+            <Icon name="plus" size={20} /> {libres === 0 ? "No quedan cupos" : "Tomar mi cupo · " + CLP(match.precio)}
+          </button>
+        )}
+        {match.miOrg && (
+          <button className="btn btn-ghost btn-block" onClick={() => onOrganize(match)}>
+            <Icon name="shirt" size={18} /> Abrir panel de organizador
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* =========================================================
+   PARTIDOS — lista (móvil) + split (desktop)
+   ========================================================= */
+function PartidosView({ matches, selectedId, onSelect, detailOpen, onTapSpot, onTakeNext, onBack, onPay, onOrganize }) {
+  const isDesktop = useMediaQuery("(min-width:1024px)");
+  const [filter, setFilter] = useStateA("todos");
+  const selected = matches.find(m => m.id === selectedId) || matches[0];
+
+  const filtered = matches.filter(m => {
+    if (filter === "miorg") return m.miOrg;
+    if (filter === "anotado") return m.spots.some(s => s.pid && playerById(s.pid).me);
+    return true;
+  });
+
+  const List = (
+    <div className="section">
+      <div className="page-head" style={{ marginBottom: 0 }}>
+        <div>
+          <div className="eyebrow">Tu barrio · Santiago</div>
+          <h1 className="h-xl">Próximos partidos</h1>
+        </div>
+        <button className="btn btn-soft only-desktop"><Icon name="plus" size={18} /> Armar partido</button>
+      </div>
+      <div className="chip-row" role="tablist" aria-label="Filtro de partidos">
+        {[["todos", "Todas"], ["anotado", "Donde voy"], ["miorg", "Que organizo"]].map(([k, l]) => (
+          <button key={k} className="chip" aria-pressed={filter === k} role="tab" onClick={() => setFilter(k)}>{l}</button>
+        ))}
+      </div>
+      <div className={isDesktop && detailMode(detailOpen, isDesktop) ? "stack" : "list-grid"} style={{ display: "grid", gap: "var(--s-4)" }}>
+        {filtered.map(m => (
+          <MatchCard key={m.id} match={m} onOpen={onSelect} active={isDesktop && m.id === selected.id} />
+        ))}
+      </div>
+    </div>
+  );
+
+  // Desktop: split list + detail. Mobile: list OR detail.
+  if (isDesktop) {
+    return (
+      <div className="split">
+        <div className="split-list">{List}</div>
+        <div><MatchDetail match={selected} embedded onTapSpot={onTapSpot} onTakeNext={onTakeNext} onPay={onPay} onOrganize={onOrganize} /></div>
+      </div>
+    );
+  }
+  if (detailOpen) {
+    return <MatchDetail match={selected} onTapSpot={onTapSpot} onTakeNext={onTakeNext} onBack={onBack} onPay={onPay} onOrganize={onOrganize} />;
+  }
+  return List;
+}
+function detailMode(open, desk) { return desk; }
+
+Object.assign(window, { useMediaQuery, AuthScreen, MatchDetail, PartidosView });

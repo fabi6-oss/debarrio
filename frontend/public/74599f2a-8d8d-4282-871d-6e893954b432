@@ -1,0 +1,310 @@
+/* eslint-disable */
+// app.jsx — shell responsive, routing, navegación y Tweaks.
+const { useState: useS, useEffect: useE, useMemo } = React;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "marca": ["#1b7a3d", "#156234", "#eef9f2", "#dcf3e4", "#b7e3c6"],
+  "acento": ["#f2641a", "#e2570f"],
+  "grid": "rounded",
+  "density": "regular",
+  "card": "solid",
+  "nav": "labels",
+  "font": "Figtree",
+  "type": "normal"
+}/*EDITMODE-END*/;
+
+const MARCA_OPTS = [
+  ["#1b7a3d", "#156234", "#eef9f2", "#dcf3e4", "#b7e3c6"], // cancha
+  ["#15994a", "#0e7d3a", "#edfaf1", "#d3f3df", "#a8e6bf"], // pasto vivo
+  ["#1668c4", "#0f4f9c", "#eef4fc", "#d6e6f8", "#aecdf0"], // océano
+  ["#7a3fc0", "#5f2f9a", "#f4eefb", "#e7d8f6", "#cfb2ec"], // uva
+];
+const ACENTO_OPTS = [
+  ["#f2641a", "#e2570f"], // naranjo
+  ["#e8412e", "#cf2f1f"], // teja
+  ["#1898a8", "#0f7c8a"], // turquesa
+  ["#d98a00", "#b87200"], // mostaza
+];
+
+function applyTheme(root, marca, acento) {
+  if (Array.isArray(marca)) {
+    root.style.setProperty("--verde-600", marca[0]);
+    root.style.setProperty("--verde-700", marca[1]);
+    root.style.setProperty("--verde-50", marca[2]);
+    root.style.setProperty("--verde-100", marca[3]);
+    root.style.setProperty("--verde-200", marca[4]);
+    // verde-500 = marca[0] aclarada ~18%, para que el gradiente de btn-primary se vea
+    root.style.setProperty("--verde-500", "color-mix(in srgb, " + marca[0] + " 82%, #fff)");
+    root.style.setProperty("--primary", marca[0]);
+    root.style.setProperty("--st-pago-bg", marca[0]);
+    root.style.setProperty("--st-pago-bd", marca[1]);
+  }
+  if (Array.isArray(acento)) {
+    root.style.setProperty("--naranjo-500", acento[0]);
+    root.style.setProperty("--naranjo-600", acento[1]);
+    // naranjo-400 = acento[0] aclarado ~18% para gradiente de btn-accent
+    root.style.setProperty("--naranjo-400", "color-mix(in srgb, " + acento[0] + " 82%, #fff)");
+    root.style.setProperty("--accent", acento[0]);
+  }
+}
+const FONTS = { "Figtree": "'Figtree'", "Hanken Grotesk": "'Hanken Grotesk'", "Sistema": "system-ui" };
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const rootRef = React.useRef(null);
+
+  const [authed, setAuthed] = useS(false);
+  const [nav, setNav] = useS("partidos");
+  const [selectedId, setSelectedId] = useS(MATCHES[0].id);
+  const [detailOpen, setDetailOpen] = useS(false);
+  const [matches, setMatches] = useS(() => MATCHES.map(m => ({ ...m, spots: m.spots.map(s => ({ ...s })) })));
+  const [pago, setPago] = useS(null);          // {matchId, spotN}
+  const [organizeId, setOrganizeId] = useS(MATCHES.find(m => m.miOrg).id);
+  const [take, setTake] = useS(null);           // {matchId, spotN}
+  const [inspect, setInspect] = useS(null);     // {matchId, spotN, org}
+
+  // aplica tweaks al root
+  useE(() => {
+    const r = rootRef.current; if (!r) return;
+    applyTheme(r, t.marca, t.acento);
+    r.style.setProperty("--font-ui", FONTS[t.font] || FONTS.Figtree);
+    r.setAttribute("data-grid", t.grid);
+    r.setAttribute("data-density", t.density);
+    r.setAttribute("data-card", t.card);
+    r.setAttribute("data-nav", t.nav);
+    r.setAttribute("data-type", t.type);
+  }, [t]);
+
+  const getMatch = (id) => matches.find(m => m.id === id);
+  const updateSpot = (matchId, spotN, patch) => {
+    setMatches(ms => ms.map(m => m.id !== matchId ? m : ({
+      ...m, spots: m.spots.map(s => s.n !== spotN ? s : ({ ...s, ...patch }))
+    })));
+  };
+
+  const goDetail = (m) => { setSelectedId(m.id); setDetailOpen(true); window.scrollTo(0, 0); };
+  const backToList = () => setDetailOpen(false);
+
+  // tomar próximo cupo libre
+  const takeNext = (m) => {
+    const spot = m.spots.find(s => s.state === "libre" || s.state === "liberado");
+    if (!spot) return;
+    setTake({ matchId: m.id, spotN: spot.n });
+  };
+  const handleTapSpot = (m, spot) => {
+    const player = spot.pid ? playerById(spot.pid) : null;
+    if (spot.state === "libre" || spot.state === "liberado") { setTake({ matchId: m.id, spotN: spot.n }); return; }
+    if (player && player.me && spot.state === "pendiente") { setPago({ matchId: m.id, spotN: spot.n }); return; }
+    setInspect({ matchId: m.id, spotN: spot.n, org: false });
+  };
+  const confirmTake = () => {
+    const { matchId, spotN } = take;
+    updateSpot(matchId, spotN, { state: "pendiente", pid: ME.id, when: "recién" });
+    setSelectedId(matchId);
+    setPago({ matchId, spotN });
+    setTake(null);
+  };
+
+  // organizador
+  const orgConfirm = (matchId, spotN) => updateSpot(matchId, spotN, { state: "pagado", when: "hoy" });
+  const orgRelease = (matchId, spotN) => updateSpot(matchId, spotN, { state: "liberado", pid: null, when: "se liberó recién" });
+  const handleOrgTap = (m, spot) => {
+    if (spot.state === "pendiente") setInspect({ matchId: m.id, spotN: spot.n, org: true });
+    else if (spot.state === "pagado") setInspect({ matchId: m.id, spotN: spot.n, org: true });
+  };
+  const openOrganize = (m) => { setOrganizeId(m.id); setNav("organizar"); window.scrollTo(0, 0); };
+
+  if (!authed) {
+    return (
+      <div ref={rootRef} data-app="">
+        <AuthScreen onEnter={() => setAuthed(true)} />
+        <TweaksUI t={t} setTweak={setTweak} />
+      </div>
+    );
+  }
+
+  const NAV = [
+    { key: "partidos", label: "Partidos", icon: "ball" },
+    { key: "organizar", label: "Organizar", icon: "shirt" },
+    { key: "perfil", label: "Perfil", icon: "user" },
+  ];
+  const titleFor = { partidos: "Partidos", organizar: "Organizar", perfil: "Mi perfil" };
+
+  let main;
+  if (pago) {
+    const m = getMatch(pago.matchId); const spot = m.spots.find(s => s.n === pago.spotN);
+    main = <PagoScreen match={m} spot={spot} onBack={() => setPago(null)} />;
+  } else if (nav === "partidos") {
+    main = <PartidosView matches={matches} selectedId={selectedId} detailOpen={detailOpen}
+      onSelect={goDetail} onBack={backToList}
+      onTapSpot={handleTapSpot} onTakeNext={takeNext}
+      onPay={(m, s) => setPago({ matchId: m.id, spotN: s.n })} onOrganize={openOrganize} />;
+  } else if (nav === "organizar") {
+    main = <OrganizarScreen match={getMatch(organizeId)} onConfirm={orgConfirm} onRelease={orgRelease}
+      onTapSpot={handleOrgTap} />;
+  } else {
+    main = <PerfilScreen onLogout={() => { setAuthed(false); setNav("partidos"); setDetailOpen(false); }} />;
+  }
+
+  const navClick = (k) => { setPago(null); setDetailOpen(false); setNav(k); window.scrollTo(0, 0); };
+
+  return (
+    <div ref={rootRef} data-app="" className="app">
+      <div className="shell">
+        {/* Sidebar desktop */}
+        <aside className="sidebar">
+          <div className="brand">
+            <div className="brand-mark"><Icon name="ball" size={22} /></div>
+            <span className="brand-name">De<b>Barrio</b></span>
+          </div>
+          {NAV.map(n => (
+            <button key={n.key} className="side-link" aria-current={nav === n.key && !pago ? "page" : undefined} onClick={() => navClick(n.key)}>
+              <Icon name={n.icon} size={21} /> {n.label}
+            </button>
+          ))}
+          <div className="side-foot">
+            <hr className="divider" />
+            <button className="side-link" onClick={() => alert("Armar nuevo partido")}><Icon name="plus" size={21} /> Armar partido</button>
+            <div className="row" style={{ gap: 10, padding: "10px 14px" }}>
+              <Avatar player={ME} size={36} />
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontWeight: 750, fontSize: 14 }}>Nico Soto</div>
+                <RepBadge score={ME.rep} small showScore />
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* Contenido */}
+        <div className="content">
+          {/* Topbar móvil */}
+          <header className="topbar mobile-only only-mobile">
+            <div className="brand">
+              <div className="brand-mark" style={{ width: 32, height: 32, borderRadius: 9 }}><Icon name="ball" size={18} /></div>
+              <span className="brand-name" style={{ fontSize: 17 }}>De<b>Barrio</b></span>
+            </div>
+            <div className="topbar-spacer" />
+            <button className="icon-btn" aria-label="Notificaciones"><Icon name="bell" size={20} /></button>
+          </header>
+
+          {/* Deskbar título */}
+          <div className="deskbar">
+            <h2 className="h-lg" style={{ margin: 0 }}>{pago ? "Pagar cupo" : titleFor[nav]}</h2>
+          </div>
+
+          <main className="content-pad with-bottomnav">
+            <div
+              className="content-enter"
+              key={nav + "|" + (pago ? ("p" + pago.matchId + "-" + pago.spotN) : "") + "|" + (detailOpen ? "d" : "l") + "|" + selectedId}
+            >
+              {main}
+            </div>
+          </main>
+        </div>
+      </div>
+
+      {/* Bottom nav móvil */}
+      {!pago && (
+        <nav className="bottomnav only-mobile" aria-label="Navegación principal">
+          {NAV.map(n => (
+            <button key={n.key} className="nav-item" aria-current={nav === n.key ? "page" : undefined} onClick={() => navClick(n.key)}>
+              <span className="nav-dot"><Icon name={n.icon} size={22} /></span>
+              <span className="lbl">{n.label}</span>
+            </button>
+          ))}
+        </nav>
+      )}
+
+      {/* Sheet: tomar cupo */}
+      <Sheet open={!!take} onClose={() => setTake(null)} labelledby="take-t">
+        {take && (() => {
+          const m = getMatch(take.matchId);
+          return (
+            <div className="section">
+              <div className="row" style={{ gap: 14 }}>
+                <span className="legend-swatch" style={{ width: 56, height: 56, borderColor: "var(--verde-500)", color: "var(--verde-700)" }}>
+                  <span className="num" style={{ fontSize: 22, fontWeight: 800 }}>{String(take.spotN).padStart(2, "0")}</span>
+                </span>
+                <div>
+                  <h2 id="take-t" className="h-lg" style={{ margin: 0 }}>Tomar el cupo {String(take.spotN).padStart(2, "0")}</h2>
+                  <p className="muted" style={{ margin: "2px 0 0" }}>{m.titulo} · {m.dia} {m.hora}</p>
+                </div>
+              </div>
+              <Banner kind="info" icon="clock">Reservamos este cupo a tu nombre. Quedará <b>pendiente</b> hasta que pagues por transferencia y el organizador confirme.</Banner>
+              <div className="row" style={{ justifyContent: "space-between", padding: "0 4px" }}>
+                <span className="lbl">Total a pagar</span>
+                <span className="num" style={{ fontWeight: 800, fontSize: "var(--fs-xl)", color: "var(--verde-700)" }}>{CLP(m.precio)}</span>
+              </div>
+              <button className="btn btn-primary btn-lg btn-block" onClick={confirmTake}><Icon name="check" size={20} /> Reservar y pagar</button>
+              <button className="btn btn-quiet btn-block" onClick={() => setTake(null)}>Mejor no</button>
+            </div>
+          );
+        })()}
+      </Sheet>
+
+      {/* Sheet: inspeccionar cupo */}
+      <Sheet open={!!inspect} onClose={() => setInspect(null)} labelledby="insp-t">
+        {inspect && (() => {
+          const m = getMatch(inspect.matchId); const s = m.spots.find(x => x.n === inspect.spotN);
+          const p = s.pid ? playerById(s.pid) : null; const meta = STATE_META[s.state];
+          return (
+            <div className="section">
+              <div className="row" style={{ gap: 14 }}>
+                {p ? <Avatar player={p} size={56} /> : <span className={"legend-swatch s-" + s.state} style={{ width: 56, height: 56 }}><Icon name={meta.icon} size={26} /></span>}
+                <div style={{ flex: 1 }}>
+                  <h2 id="insp-t" className="h-lg" style={{ margin: 0 }}>Cupo {String(s.n).padStart(2, "0")} · {p ? p.name : meta.label}</h2>
+                  <div className="row" style={{ gap: 8, marginTop: 4 }}>
+                    <span className={"tag tag-" + (s.state === "pagado" ? "verde" : s.state === "pendiente" ? "warn" : "info")}><Icon name={meta.icon} size={12} /> {meta.label}</span>
+                    {s.when && <span className="muted-2" style={{ fontSize: 13 }}>{s.when}</span>}
+                  </div>
+                </div>
+              </div>
+              {p && <div className="card card-pad row" style={{ justifyContent: "space-between" }}><span className="muted">Reputación de pago</span><RepBadge score={p.rep} small /></div>}
+              {inspect.org ? (
+                s.state === "pendiente" ? (
+                  <>
+                    <button className="btn btn-primary btn-lg btn-block" onClick={() => { orgConfirm(m.id, s.n); setInspect(null); }}><Icon name="check" size={20} /> Confirmar pago</button>
+                    <button className="btn btn-ghost btn-block" onClick={() => { orgRelease(m.id, s.n); setInspect(null); }}><Icon name="undo" size={18} /> Liberar cupo</button>
+                  </>
+                ) : (
+                  <button className="btn btn-ghost btn-block" onClick={() => { orgRelease(m.id, s.n); setInspect(null); }}><Icon name="undo" size={18} /> Liberar cupo</button>
+                )
+              ) : (
+                <button className="btn btn-quiet btn-block" onClick={() => setInspect(null)}>Cerrar</button>
+              )}
+            </div>
+          );
+        })()}
+      </Sheet>
+
+      <TweaksUI t={t} setTweak={setTweak} />
+    </div>
+  );
+}
+
+/* ---------- Panel de Tweaks ---------- */
+function TweaksUI({ t, setTweak }) {
+  return (
+    <TweaksPanel title="Tweaks">
+      <TweakSection label="Marca y tema" />
+      <TweakColor label="Color de marca" value={t.marca} options={MARCA_OPTS} onChange={v => setTweak("marca", v)} />
+      <TweakColor label="Acento (organizador)" value={t.acento} options={ACENTO_OPTS} onChange={v => setTweak("acento", v)} />
+
+      <TweakSection label="Lista de cupos" />
+      <TweakRadio label="Forma de ficha" value={t.grid} options={["rounded", "circle", "ticket"]} onChange={v => setTweak("grid", v)} />
+      <TweakRadio label="Densidad" value={t.density} options={["compact", "regular", "comfy"]} onChange={v => setTweak("density", v)} />
+
+      <TweakSection label="Card de partido" />
+      <TweakRadio label="Estilo de card" value={t.card} options={["solid", "outline", "photo"]} onChange={v => setTweak("card", v)} />
+
+      <TweakSection label="Tipografía" />
+      <TweakSelect label="Fuente" value={t.font} options={["Figtree", "Hanken Grotesk", "Sistema"]} onChange={v => setTweak("font", v)} />
+      <TweakRadio label="Escala" value={t.type} options={["chico", "normal", "grande"]} onChange={v => setTweak("type", v)} />
+
+      <TweakSection label="Navegación" />
+      <TweakRadio label="Estilo de nav" value={t.nav} options={["labels", "icons", "pill"]} onChange={v => setTweak("nav", v)} />
+    </TweaksPanel>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);

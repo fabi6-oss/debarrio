@@ -1,0 +1,147 @@
+/* eslint-disable */
+// data.jsx — datos de ejemplo (español de Chile)
+
+const AVATARS = ["#1b7a3d","#f2641a","#2f5aa0","#9a4bc4","#c43b5e","#0f8f86","#c98a12","#5a6cc4","#b5532a","#2f8f4e"];
+const avatarColor = (seed) => AVATARS[(seed*7+3) % AVATARS.length];
+const initials = (name) => name.split(" ").slice(0,2).map(w=>w[0]).join("").toUpperCase();
+
+// reputación de pago: tier por score 0–100
+function repTier(score){
+  if (score >= 90) return { key:"crack",  label:"Crack del pago", color:"var(--verde-600)", icon:"shield" };
+  if (score >= 70) return { key:"cumple", label:"Cumplidor",      color:"var(--info)",      icon:"checkCircle" };
+  if (score >= 45) return { key:"ahi",    label:"Ahí nomás",      color:"var(--warn)",      icon:"clock" };
+  return            { key:"moroso", label:"Moroso",          color:"var(--danger)",    icon:"alert" };
+}
+
+const PLAYERS = [
+  { id:1,  name:"Tú (Nico Soto)",  alias:"nico",     rep:96, jugados:38, pagados:38, debe:0,     me:true, streak: 7 },
+  { id:2,  name:"Pancho Reyes",    alias:"pancho",   rep:99, jugados:51, pagados:51, debe:0 },
+  { id:3,  name:"Cata Muñoz",      alias:"cata",     rep:93, jugados:29, pagados:29, debe:0 },
+  { id:4,  name:"Feña Tapia",      alias:"feña",     rep:88, jugados:33, pagados:32, debe:0 },
+  { id:5,  name:"Manu Vidal",      alias:"manu",     rep:76, jugados:24, pagados:22, debe:0 },
+  { id:6,  name:"Checho Lara",     alias:"checho",   rep:71, jugados:19, pagados:17, debe:0 },
+  { id:7,  name:"Dani Pizarro",    alias:"dani",     rep:58, jugados:16, pagados:12, debe:3500 },
+  { id:8,  name:"Galleta Rojas",   alias:"galleta",  rep:41, jugados:14, pagados:8,  debe:7000 },
+  { id:9,  name:"Tincho Bravo",    alias:"tincho",   rep:34, jugados:11, pagados:6,  debe:10500 },
+  { id:10, name:"Beto Cáceres",    alias:"beto",     rep:62, jugados:18, pagados:14, debe:3500 },
+  { id:11, name:"Lucho Fuentes",   alias:"lucho",    rep:84, jugados:27, pagados:26, debe:0 },
+  { id:12, name:"Vicho Salas",     alias:"vicho",    rep:90, jugados:30, pagados:30, debe:0 },
+];
+const playerById = (id) => PLAYERS.find(p=>p.id===id);
+const ME = PLAYERS[0];
+
+// genera cupos: estados mezclados. owners = array de {n, pid, state, when}
+function buildSpots(total, fills){
+  const spots = [];
+  for (let n=1; n<=total; n++){
+    const f = fills[n];
+    if (f) spots.push({ n, state:f.state, pid:f.pid||null, when:f.when||null });
+    else spots.push({ n, state:"libre", pid:null, when:null });
+  }
+  return spots;
+}
+
+// Partido estrella (detalle) — Baby fútbol 7v7 = 14 cupos
+const STAR_FILLS = {
+  1:{state:"pagado",pid:2,when:"hace 2 d"}, 2:{state:"pagado",pid:3,when:"hace 2 d"},
+  3:{state:"pagado",pid:11,when:"ayer"},   4:{state:"pagado",pid:12,when:"ayer"},
+  5:{state:"pagado",pid:4,when:"ayer"},    6:{state:"pagado",pid:1,when:"hoy 10:12"},
+  7:{state:"pendiente",pid:5,when:"hace 40 min"}, 8:{state:"pendiente",pid:6,when:"hace 12 min"},
+  9:{state:"pagado",pid:10,when:"hoy 09:30"},
+  10:{state:"liberado",pid:null,when:"se liberó hace 5 min"},
+  12:{state:"pendiente",pid:7,when:"hace 3 min"},
+  13:{state:"pagado",pid:8,when:"hoy 08:50"},
+};
+
+const MATCHES = [
+  {
+    id:"m1", titulo:"Partido del Jueves", formato:"Baby fútbol · 7 vs 7",
+    cancha:"Complejo La Bombonera", comuna:"Ñuñoa", dia:"Jue 12 jun", hora:"20:00", dur:"60 min",
+    precio:3500, organizador:2, total:14, destacado:true,
+    spots: buildSpots(14, STAR_FILLS),
+    nota:"Llevar peto claro y oscuro. Puntualidad: la cancha es justa de tiempo 🙏",
+  },
+  {
+    id:"m2", titulo:"Fútbol 11 Dominical", formato:"Fútbol · 11 vs 11",
+    cancha:"Estadio Municipal", comuna:"Maipú", dia:"Dom 15 jun", hora:"10:00", dur:"90 min",
+    precio:5000, organizador:11, total:22, destacado:false,
+    spots: buildSpots(22, {
+      1:{state:"pagado",pid:2},2:{state:"pagado",pid:3},3:{state:"pagado",pid:4},
+      4:{state:"pagado",pid:11},5:{state:"pagado",pid:12},6:{state:"pendiente",pid:5},
+      7:{state:"pendiente",pid:6},8:{state:"pagado",pid:1},9:{state:"liberado"},
+      10:{state:"pagado",pid:10},11:{state:"pendiente",pid:7},
+    }),
+    nota:"Cancha de pasto natural. Estacionamiento por calle lateral.",
+  },
+  {
+    id:"m3", titulo:"Futbolito de las Minas", formato:"Futbolito · 5 vs 5",
+    cancha:"Cancha El Bosque", comuna:"La Florida", dia:"Sáb 14 jun", hora:"18:30", dur:"60 min",
+    precio:3000, organizador:3, total:10, destacado:false,
+    spots: buildSpots(10, {
+      1:{state:"pagado",pid:3},2:{state:"pagado",pid:4},3:{state:"pagado",pid:12},
+      4:{state:"pendiente",pid:5},5:{state:"pagado",pid:1},6:{state:"libre"},
+    }),
+    nota:"Mixto bienvenido. Buena onda siempre 💪",
+  },
+  {
+    id:"m4", titulo:"Partido Después de Pega", formato:"Baby fútbol · 7 vs 7",
+    cancha:"Domos San Joaquín", comuna:"San Joaquín", dia:"Mié 11 jun", hora:"21:00", dur:"60 min",
+    precio:4000, organizador:1, total:14, destacado:false,
+    spots: buildSpots(14, {
+      1:{state:"pagado",pid:2},2:{state:"pagado",pid:6},3:{state:"pagado",pid:10},
+      4:{state:"pagado",pid:11},5:{state:"pagado",pid:12},6:{state:"pagado",pid:4},
+      7:{state:"pagado",pid:3},8:{state:"pendiente",pid:5},9:{state:"pendiente",pid:7},
+      10:{state:"pagado",pid:1},11:{state:"pagado",pid:9},12:{state:"pagado",pid:8},
+      13:{state:"pendiente",pid:11},14:{state:"pendiente",pid:4},
+    }),
+    nota:"Yo organizo esta 😎 — caja al día, paguen altiro.",
+    miOrg:true,
+  },
+  {
+    id:"m5", titulo:"Picha de los Viernes", formato:"Baby fútbol · 7 vs 7",
+    cancha:"Cancha Las Encinas", comuna:"Providencia", dia:"Vie 13 jun", hora:"21:00", dur:"60 min",
+    precio:4500, organizador:11, total:14, destacado:false, llena:true, waitlistCount:3,
+    spots: buildSpots(14, {
+      1:{state:"pagado",pid:2},2:{state:"pagado",pid:3},3:{state:"pagado",pid:4},
+      4:{state:"pagado",pid:11},5:{state:"pagado",pid:12},6:{state:"pagado",pid:6},
+      7:{state:"pagado",pid:8},8:{state:"pendiente",pid:10,when:"hace 20 min"},
+      9:{state:"pagado",pid:5},10:{state:"pagado",pid:7},11:{state:"pagado",pid:9},
+      12:{state:"pendiente",pid:4,when:"hace 15 min"},
+      13:{state:"pendiente",pid:6,when:"hace 10 min"},
+      14:{state:"pendiente",pid:11,when:"hace 5 min"},
+    }),
+    nota:"Cancha techada. Si llueve igual se juega.",
+  },
+];
+
+// countdown al inicio del partido — offsets en horas desde "ahora"
+(function attachCountdowns(){
+  const NOW = Date.now();
+  const OFFSETS_H = { m1: 38, m2: 80, m3: 50, m4: 2.5, m5: 22 };
+  MATCHES.forEach(m => { m.targetMs = NOW + (OFFSETS_H[m.id] || 24) * 60 * 60 * 1000; });
+})();
+
+// datos de transferencia del organizador
+const TRANSFER = {
+  nombre:"Francisco Reyes M.",
+  rut:"16.482.913-7",
+  banco:"Banco Estado",
+  tipo:"Cuenta RUT",
+  cuenta:"16482913",
+  email:"pancho.reyes@gmail.com",
+  alias:"@pancho_pichanga",
+};
+
+const STATE_META = {
+  libre:     { label:"Libre",     icon:"plus",        desc:"Cupo disponible" },
+  pendiente: { label:"Pendiente", icon:"clock",       desc:"Reservó, falta confirmar pago" },
+  pagado:    { label:"Pagado",    icon:"check",       desc:"Pago confirmado" },
+  liberado:  { label:"Liberado",  icon:"undo",        desc:"Se liberó, disponible de nuevo" },
+};
+
+const CLP = (n) => "$" + n.toLocaleString("es-CL");
+
+Object.assign(window, {
+  PLAYERS, ME, MATCHES, TRANSFER, STATE_META, CLP,
+  playerById, avatarColor, initials, repTier, buildSpots,
+});
