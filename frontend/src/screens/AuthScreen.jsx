@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react'
 import Icon from '../components/Icon.jsx'
-import { signInWithEmail, signUpWithEmail, signInWithGoogle } from '../services/auth.js'
+import { signInWithEmail, signUpWithEmail } from '../services/auth.js'
 
 const TURNSTILE_SITEKEY = import.meta.env.VITE_TURNSTILE_SITE_KEY
 
@@ -8,7 +8,7 @@ export default function AuthScreen({ onEnter, live }) {
   const [mode, setMode] = useState("login")
   const reg = mode === "registro"
   const [nombre, setNombre] = useState("")
-  const [email, setEmail] = useState("")
+  const [phone, setPhone] = useState("")
   const [password, setPassword] = useState("")
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState("")
@@ -60,6 +60,7 @@ export default function AuthScreen({ onEnter, live }) {
     }
     setBusy(true); setError("")
     try {
+      const email = phone + "@debarrio.cl"
       const { error } = reg
         ? await signUpWithEmail({ email, password, nombre, captchaToken: turnstileToken })
         : await signInWithEmail(email, password, turnstileToken)
@@ -69,11 +70,11 @@ export default function AuthScreen({ onEnter, live }) {
     } finally { setBusy(false) }
   }
 
-  const google = async () => {
+  const whatsapp = async () => {
     if (!live) { onEnter && onEnter(); return }
-    setBusy(true); setError("")
-    const { error } = await signInWithGoogle()
-    if (error) { setError(traducir(error.message)); setBusy(false) }
+    // TODO: Implement WhatsApp OAuth
+    setBusy(true)
+    setTimeout(() => setBusy(false), 1000)
   }
 
   return (
@@ -84,8 +85,12 @@ export default function AuthScreen({ onEnter, live }) {
       <div className="auth-stage-tint" />
 
       <div className="auth-topbar">
+        <div className="brand" style={{ padding: 0 }}>
+          <div className="brand-mark"><Icon name="ball" size={22} /></div>
+          <span className="brand-name" style={{ color: "#fff" }}>De<b style={{ color: "var(--naranjo-400)" }}>Barrio</b></span>
+        </div>
         <div className="auth-topbar-locale">
-          <Icon name="shield" size={14} /> Chile
+          <Icon name="shield" size={14} /> Santiago \u00b7 Chile
         </div>
       </div>
 
@@ -94,11 +99,11 @@ export default function AuthScreen({ onEnter, live }) {
           <div className="auth-lede">
             <span className="auth-eyebrow">
               <span className="auth-eyebrow-dot" />
-              Pichanga digital
+              TU BARRIO \u00b7 SANTIAGO
             </span>
             <h1 className="auth-title">
-              Arma tu pichanga<br />
-              <em>sin perseguir la plata</em>
+              El partido se arma solo<br />
+              cuando <em>todos pagan</em>.
             </h1>
           </div>
 
@@ -120,6 +125,10 @@ export default function AuthScreen({ onEnter, live }) {
               </button>
             </div>
 
+            <p className="auth-card-sub" style={{ marginBottom: 20 }}>
+              {reg ? "Te toma 30 segundos. Pura buena onda." : "Entra y mira en qu\u00e9 qued\u00f3 el partido."}
+            </p>
+
             <form onSubmit={submit}>
               <div className="section" style={{ gap: 14 }}>
                 {reg && (
@@ -129,10 +138,10 @@ export default function AuthScreen({ onEnter, live }) {
                   </div>
                 )}
                 <div className="field">
-                  <label htmlFor="em">Correo electr\u00f3nico</label>
+                  <label htmlFor="ph">N\u00famero de celular</label>
                   <div style={{ position: "relative" }}>
-                    <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--tinta-50)", display: "flex" }}><Icon name="mail" size={18} /></span>
-                    <input id="em" className="input" type="email" style={{ paddingLeft: 44 }} placeholder="tucorreo@mail.com" inputMode="email" value={email} onChange={e => setEmail(e.target.value)} autoComplete="email" />
+                    <span style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "var(--tinta-50)", display: "flex" }}><Icon name="phone" size={18} /></span>
+                    <input id="ph" className="input" type="tel" style={{ paddingLeft: 44 }} placeholder="+56 9 ____ ____" inputMode="tel" value={phone} onChange={e => setPhone(e.target.value)} autoComplete="tel" />
                   </div>
                 </div>
                 <div className="field">
@@ -151,7 +160,7 @@ export default function AuthScreen({ onEnter, live }) {
                 {error && <div className="banner banner-warn" role="alert"><Icon name="alert" size={18} stroke={2.2} style={{ flex: "0 0 auto", marginTop: 1 }} /><div>{error}</div></div>}
 
                 <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={busy}>
-                  {busy ? "Un momento\u2026" : (reg ? "Crear cuenta y entrar" : "Entrar")} <Icon name="arrowR" size={19} />
+                  {busy ? "Un momento\u2026" : "Entrar"} <Icon name="arrowR" size={19} />
                 </button>
 
                 <div className="row" style={{ gap: 12, margin: "4px 0" }}>
@@ -159,20 +168,11 @@ export default function AuthScreen({ onEnter, live }) {
                   <span className="muted-2" style={{ fontSize: 13 }}>o</span>
                   <hr className="divider" style={{ flex: 1 }} />
                 </div>
-                <button type="button" className="btn btn-ghost btn-lg btn-block" onClick={google} disabled={busy}>
-                  <Icon name="user" size={19} /> Entrar con Google
+                <button type="button" className="btn btn-ghost btn-lg btn-block" onClick={whatsapp} disabled={busy}>
+                  <Icon name="whatsapp" size={19} /> Entrar con WhatsApp
                 </button>
               </div>
             </form>
-          </div>
-
-          <div className="auth-trust">
-            {[["shield", "Pagos seguros"], ["users", "Tu barrio"], ["trophy", "Reputaci\u00f3n"]].map(([i, t]) => (
-              <span className="auth-trust-pill" key={t}>
-                <span className="badge-ico"><Icon name={i} size={13} /></span>
-                {t}
-              </span>
-            ))}
           </div>
         </div>
       </div>

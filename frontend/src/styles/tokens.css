@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 /* ============================================================
    DeBarrio — Tokens del sistema de diseño
@@ -350,7 +350,7 @@
 
 
 /* ============================================================
-   DeBarrio â€” Tokens del sistema de diseÃ±o
+   DeBarrio â€— Tokens del sistema de diseño
    Modo claro, alto contraste, mobile-first.
    Variables manejables por Tweaks (ver data-* en :root).
    ============================================================ */
@@ -360,7 +360,7 @@
   --verde-900: #0d3d20;
   --verde-800: #114d2a;
   --verde-700: #156234;
-  --verde-600: #1b7a3d;   /* PRIMARY Â· verde cancha */
+  --verde-600: #1b7a3d;   /* PRIMARY · verde cancha */
   --verde-500: #239149;
   --verde-400: #38ac61;
   --verde-200: #b7e3c6;
@@ -369,23 +369,23 @@
 
   --naranjo-700: #c44e12;
   --naranjo-600: #e2570f;
-  --naranjo-500: #f2641a;  /* ACCENT Â· organizador / CTA secundario */
+  --naranjo-500: #f2641a;  /* ACCENT · organizador / CTA secundario */
   --naranjo-400: #f7864a;
   --naranjo-200: #fcd6c0;
   --naranjo-100: #fde7da;
   --naranjo-50:  #fef3ec;
 
-  /* ---- Neutros cÃ¡lidos ---- */
-  --tinta:    #19211c;   /* texto principal (negro cÃ¡lido verdoso) */
+  /* ---- Neutros cálidos ---- */
+  --tinta:    #19211c;   /* texto principal (negro cálido verdoso) */
   --tinta-70: #45504a;   /* texto secundario */
   --tinta-50: #6c766f;   /* texto terciario / placeholder */
   --linea:    #e3e7e3;   /* bordes */
   --linea-fuerte: #cfd6d0;
   --panel:    #ffffff;   /* superficies */
-  --lienzo:   #f5f6f3;   /* fondo app (off-white cÃ¡lido) */
+  --lienzo:   #f5f6f3;   /* fondo app (off-white cálido) */
   --lienzo-2: #eceee9;
 
-  /* ---- Estados de cupo (color + se acompaÃ±an SIEMPRE de Ã­cono+texto) ---- */
+  /* ---- Estados de cupo (color + se acompañan SIEMPRE de ícono+texto) ---- */
   --st-libre-bg:     #ffffff;
   --st-libre-bd:     #cfd6d0;
   --st-libre-fg:     #45504a;
@@ -403,7 +403,7 @@
   --st-libe-bd:      #9db8e0;
   --st-libe-fg:      #2f5aa0;
 
-  /* ---- SemÃ¡nticos app ---- */
+  /* ---- Semánticos app ---- */
   --primary:    var(--verde-600);
   --primary-ink: #ffffff;
   --accent:     var(--naranjo-500);
@@ -412,7 +412,7 @@
   --danger:     #d23b3b;
   --info:       #2f5aa0;
 
-  /* ---- TipografÃ­a ---- */
+  /* ---- Tipografía ---- */
   --font-ui: "Figtree", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-num: "Figtree", system-ui, sans-serif;
   --fw-reg: 450;
@@ -453,12 +453,12 @@
   --ring-acc: 0 0 0 3px rgba(242,100,26,.3);
 
   /* ---- Touch ---- */
-  --tap: 48px;       /* Ã¡rea tÃ¡ctil mÃ­nima mÃ³vil */
+  --tap: 48px;       /* área táctil mínima móvil */
   --tap-lg: 56px;
 }
 
 /* ---- Breakpoints (referencia) ----
-   sm  â‰¥ 480px   telÃ©fono grande
+   sm  â‰¥ 480px   teléfono grande
    md  â‰¥ 768px   tablet
    lg  â‰¥ 1024px  escritorio (dos zonas + sidebar)
    xl  â‰¥ 1280px  escritorio amplio
@@ -477,7 +477,7 @@ body {
 button { font-family: inherit; }
 ::selection { background: var(--verde-200); }
 
-/* nÃºmeros tabulares para grilla y montos */
+/* números tabulares para grilla y montos */
 .num { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
 
 /* utilitario screen-reader */
