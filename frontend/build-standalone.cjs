@@ -8,17 +8,4 @@ if (!fs.existsSync(distDir)) fs.mkdirSync(distDir, { recursive: true });
 
 fs.copyFileSync(path.join(srcDir, 'index.html'), path.join(distDir, 'index.html'));
 
-const publicDir = path.join(srcDir, 'public');
-function copyDir(src, dest) {
-  if (!fs.existsSync(dest)) fs.mkdirSync(dest, { recursive: true });
-  const entries = fs.readdirSync(src, { withFileTypes: true });
-  for (const entry of entries) {
-    const srcPath = path.join(src, entry.name);
-    const destPath = path.join(dest, entry.name);
-    if (entry.isDirectory()) copyDir(srcPath, destPath);
-    else fs.copyFileSync(srcPath, destPath);
-  }
-}
-copyDir(publicDir, distDir);
-
-console.log('✓ Standalone deployed to dist/');
+console.log('✓ Standalone HTML copied to dist/index.html');
