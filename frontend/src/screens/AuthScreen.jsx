@@ -60,7 +60,7 @@ export default function AuthScreen({ onEnter, live }) {
     }
     setBusy(true); setError("")
     try {
-      const email = phone + "@debarrio.cl"
+      const email = phone.replace(/\s+/g, '') + "@debarrio.cl"
       const { error } = reg
         ? await signUpWithEmail({ email, password, nombre, captchaToken: turnstileToken })
         : await signInWithEmail(email, password, turnstileToken)
@@ -72,7 +72,6 @@ export default function AuthScreen({ onEnter, live }) {
 
   const whatsapp = async () => {
     if (!live) { onEnter && onEnter(); return }
-    // TODO: Implement WhatsApp OAuth
     setBusy(true)
     setTimeout(() => setBusy(false), 1000)
   }
@@ -84,31 +83,20 @@ export default function AuthScreen({ onEnter, live }) {
       </video>
       <div className="auth-stage-tint" />
 
-      <div className="auth-topbar">
-        <div className="brand" style={{ padding: 0 }}>
-          <div className="brand-mark"><Icon name="ball" size={22} /></div>
-          <span className="brand-name" style={{ color: "#fff" }}>De<b style={{ color: "var(--naranjo-400)" }}>Barrio</b></span>
-        </div>
-        <div className="auth-topbar-locale">
-          <Icon name="shield" size={14} /> Santiago \u00b7 Chile
-        </div>
-      </div>
-
       <div className="auth-main">
         <div className="auth-col">
-          <div className="auth-lede">
-            <span className="auth-eyebrow">
-              <span className="auth-eyebrow-dot" />
-              TU BARRIO \u00b7 SANTIAGO
-            </span>
-            <h1 className="auth-title">
-              El partido se arma solo<br />
-              cuando <em>todos pagan</em>.
-            </h1>
-          </div>
+          <span className="auth-eyebrow">
+            <span className="auth-eyebrow-dot" />
+            TU BARRIO \u00b7 SANTIAGO
+          </span>
+
+          <h1 className="auth-title">
+            El partido se arma solo<br />
+            cuando <em>todos pagan</em>.
+          </h1>
 
           <div className="auth-card">
-            <div className="auth-seg" style={{ marginBottom: 20 }}>
+            <div className="auth-seg" style={{ marginBottom: 18 }}>
               <button
                 type="button"
                 className={"auth-seg-btn" + (!reg ? " is-on" : "")}
@@ -125,12 +113,12 @@ export default function AuthScreen({ onEnter, live }) {
               </button>
             </div>
 
-            <p className="auth-card-sub" style={{ marginBottom: 20 }}>
+            <p className="auth-card-sub" style={{ marginBottom: 22 }}>
               {reg ? "Te toma 30 segundos. Pura buena onda." : "Entra y mira en qu\u00e9 qued\u00f3 el partido."}
             </p>
 
             <form onSubmit={submit}>
-              <div className="section" style={{ gap: 14 }}>
+              <div className="section" style={{ gap: 16 }}>
                 {reg && (
                   <div className="field">
                     <label htmlFor="nm">Nombre y apodo</label>
@@ -159,17 +147,17 @@ export default function AuthScreen({ onEnter, live }) {
 
                 {error && <div className="banner banner-warn" role="alert"><Icon name="alert" size={18} stroke={2.2} style={{ flex: "0 0 auto", marginTop: 1 }} /><div>{error}</div></div>}
 
-                <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={busy}>
-                  {busy ? "Un momento\u2026" : "Entrar"} <Icon name="arrowR" size={19} />
+                <button type="submit" className="btn btn-primary btn-lg btn-block" disabled={busy} style={{ minHeight: 56, fontSize: "var(--fs-lg)" }}>
+                  {busy ? "Un momento\u2026" : "Entrar"} <Icon name="arrowR" size={20} />
                 </button>
 
-                <div className="row" style={{ gap: 12, margin: "4px 0" }}>
+                <div className="row" style={{ gap: 12, margin: "2px 0" }}>
                   <hr className="divider" style={{ flex: 1 }} />
                   <span className="muted-2" style={{ fontSize: 13 }}>o</span>
                   <hr className="divider" style={{ flex: 1 }} />
                 </div>
-                <button type="button" className="btn btn-ghost btn-lg btn-block" onClick={whatsapp} disabled={busy}>
-                  <Icon name="whatsapp" size={19} /> Entrar con WhatsApp
+                <button type="button" className="btn btn-ghost btn-lg btn-block" onClick={whatsapp} disabled={busy} style={{ minHeight: 56 }}>
+                  <Icon name="whatsapp" size={20} /> Entrar con WhatsApp
                 </button>
               </div>
             </form>
